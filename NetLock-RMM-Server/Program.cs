@@ -88,6 +88,9 @@ var role_llm = builder.Configuration.GetValue<bool>("Kestrel:Roles:LLM", true);
 
 SemaphoreSlim _maxConcurrentNetLockPackageDownloadsSemaphore = new SemaphoreSlim(5, 5);
 
+// IP Whitelist will be loaded from database after MySQL connection is established
+List<string> allowedIps = new List<string>();
+
 Roles.Comm = role_comm;
 Roles.Update = role_update;
 Roles.Trust = role_trust;
@@ -270,6 +273,38 @@ else
 
         Console.WriteLine("Members Portal API key loaded from database: " + Members_Portal.ApiKey);
     }
+    
+    // Load IP Whitelist from database
+    try
+    {
+        string ipWhitelistJson = await NetLock_RMM_Server.MySQL.Handler.Quick_Reader("SELECT * FROM settings;", "ip_whitelist_backend");
+        
+        if (!string.IsNullOrEmpty(ipWhitelistJson))
+        {
+            var ipList = System.Text.Json.JsonSerializer.Deserialize<List<string>>(ipWhitelistJson);
+            if (ipList != null && ipList.Count > 0)
+            {
+                allowedIps = ipList;
+                Console.WriteLine($"[Agent Backend] IP Whitelist loaded from database: {string.Join(", ", allowedIps)}");
+            }
+            else
+            {
+                Console.WriteLine("[Agent Backend] IP Whitelist is empty in database. All IPs will be allowed.");
+            }
+        }
+        else
+        {
+            Console.WriteLine("[Agent Backend] No IP Whitelist configured in database. All IPs will be allowed.");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine($"[Agent Backend] Warning: Could not load IP Whitelist from database: {ex.Message}");
+        Console.WriteLine("[Agent Backend] All IPs will be allowed.");
+        Console.ResetColor();
+        Logging.Handler.Error("Program.cs", "Load IP Whitelist Agent Backend", ex.ToString());
+    }
 }
 
 Console.WriteLine(Environment.NewLine);
@@ -279,7 +314,7 @@ if (Roles.Update || Roles.Trust)
 {
     if (Members_Portal.IsApiEnabled)
     {
-        //OSSCH_START 23c5767f-bd39-4b5b-b7b6-79ac59f00688 //OSSCH_END
+        //OSSCH_START 4182a1c7-c658-40ab-a991-fd3ee99bdd3e //OSSCH_END
         Console.WriteLine("----------------------------------------");
     }
 }
@@ -325,6 +360,37 @@ if (https_force)
 
 app.UseRouting();
 
+// IP Whitelist Middleware for Agent Backend
+if (allowedIps != null && allowedIps.Count > 0)
+{
+    Logging.Handler.Debug("Middleware", "IP Whitelisting Agent Backend", "IP whitelisting enabled. Whitelisted IPs: " + string.Join(", ", allowedIps));
+    Console.WriteLine("[Agent Backend] IP whitelisting enabled. Whitelisted IPs: " + string.Join(", ", allowedIps));
+    
+    app.Use(async (context, next) =>
+    {
+        var remoteIp = context.Request.Headers.TryGetValue("X-Forwarded-For", out var headerValue) 
+            ? headerValue.ToString().Split(',')[0].Trim() 
+            : context.Connection.RemoteIpAddress?.ToString();
+        
+        Logging.Handler.Debug("Middleware Agent Backend", "Checking IP", remoteIp);
+        
+        if (!allowedIps.Contains(remoteIp))
+        {
+            Logging.Handler.Error("Middleware Agent Backend", "IP Whitelisting", $"IP {remoteIp} is not whitelisted.");
+            context.Response.StatusCode = 403;
+            await context.Response.WriteAsync("Access denied. Your IP: " + remoteIp);
+            return;
+        }
+        
+        await next();
+    });
+}
+else
+{
+    Logging.Handler.Debug("Middleware", "IP Whitelisting Agent Backend", "No IP addresses are whitelisted. All IPs will be allowed.");
+    Console.WriteLine("[Agent Backend] No IP addresses are whitelisted. All IPs will be allowed.");
+}
+
 // Only use the middleware for the commandHub, to verify the signalR connection
 app.UseWhen(context => context.Request.Path.StartsWithSegments("/commandHub"), appBuilder =>
 {
@@ -349,13 +415,13 @@ app.MapGet("/test", async context =>
 // Members Portal Api Cloud Version Endpoints
 if (Members_Portal.IsApiEnabled && Members_Portal.IsCloudEnabled)
 {
-    //OSSCH_START cc6b1598-f586-4465-a839-9d1987fbe74e //OSSCH_END
+    //OSSCH_START bd3322ee-e416-4172-9c3f-168b1e19d479 //OSSCH_END
 }
 
 if (Members_Portal.IsApiEnabled && Members_Portal.IsCloudEnabled)
 {
     // Credentials update endpoint
-    //OSSCH_START 2c488b1a-1605-4e6e-8617-1d115f4651a0 //OSSCH_END
+    //OSSCH_START 27abce4c-c93a-468d-8211-c7f0a47b0061 //OSSCH_END
 }
 
 //Check Version
@@ -1314,7 +1380,7 @@ app.MapPost("/admin/files/upload/device", async (HttpContext context) =>
 // NetLock files download private - GUID, used for update server & trust server
 if (role_update || role_trust)
 {
-    //OSSCH_START 07dc9d03-0cb9-428e-adf7-0b2c856a79dc //OSSCH_END
+    //OSSCH_START e0539cb0-84ff-481d-b74d-63923f9f1b7a //OSSCH_END
 }
 
 /*

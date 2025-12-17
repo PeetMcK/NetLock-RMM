@@ -52,6 +52,7 @@
         animation: slide 2s infinite ease-in-out;
     }
 
+    /* Light Mode */
     .sso-card {
         background: rgba(255, 255, 255, 0.95);
         backdrop-filter: blur(10px);
@@ -60,6 +61,20 @@
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         max-width: 500px;
         text-align: center;
+    }
+
+    /* Dark Mode */
+    @@media (prefers-color-scheme: dark) {
+        .sso-card {
+            background: rgba(30, 30, 30, 0.95);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+    }
+
+    /* MudBlazor Dark Mode Detection */
+    .mud-theme-dark .sso-card {
+        background: rgba(30, 30, 30, 0.95);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
     }
 </style>
 
@@ -70,59 +85,28 @@
                 <span class="slide-emoji">🐧</span>
             </div>
             
-            <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" Thickness="6" Style="margin-bottom: 1.5rem;" />
+            <MudProgressCircular Color="Color.Default" Size="Size.Large" Indeterminate="true" Thickness="6" Style="margin-bottom: 1.5rem;" />
             
             <MudText Typo="Typo.h4" Class="animated-text" Style="font-weight: 500; margin-bottom: 0.5rem;">
                 SSO Authentication
             </MudText>
             
-            <MudText Typo="Typo.body1" Color="Color.Secondary" Style="margin-top: 1rem;">
+            <MudText Typo="Typo.body1" Color="Color.Default" Style="margin-top: 1rem;">
                 Completing your secure login...
             </MudText>
             
-            <MudText Typo="Typo.body2" Color="Color.Secondary" Style="margin-top: 0.5rem; font-size: 0.875rem;">
+            <MudText Typo="Typo.body2" Color="Color.Default" Style="margin-top: 0.5rem; font-size: 0.875rem;">
                 You'll be redirected shortly
             </MudText>
         </div>
         
-        <MudText Typo="Typo.caption" Color="Color.Secondary" Style="opacity: 0.7;">
+        <MudText Typo="Typo.caption" Color="Color.Default" Style="opacity: 0.7;">
             Powered by NetLock RMM
         </MudText>
     </div>
 </MudOverlay>
 
 @code {
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            try
-            {
-                // Give the SSO authentication time to complete
-                await Task.Delay(500);
-            
-                // Get the current user from the authentication state
-                var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-                var user = authState.User;
-
-                // Check if user is authenticated
-                if (user?.Identity is { IsAuthenticated: true })
-                {
-                    // User is authenticated via SSO, redirect to dashboard
-                    NavigationManager.NavigateTo("/dashboard", true);
-                }
-                else
-                {
-                    // Authentication failed, redirect back to login
-                    NavigationManager.NavigateTo("/", true);
-                }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-                NavigationManager.NavigateTo("/", true);
-            }
-        }
-    }
+    //OSSCH_START d6476677-4165-456a-b102-1ee8c2958a8f //OSSCH_END
 }
 

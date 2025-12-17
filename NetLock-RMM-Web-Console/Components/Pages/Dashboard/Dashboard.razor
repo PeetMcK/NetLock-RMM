@@ -593,57 +593,7 @@
         loading_overlay = false;
         StateHasChanged();
 
-        await Check_Member_Ship_Reminder();
         await ShowChangelogDialog();
-    }
-
-    private async Task Check_Member_Ship_Reminder()
-    {
-        try
-        {
-            // Load the appsettings.json file
-            string json = File.ReadAllText("appsettings.json");
-
-            // Parse JSON into a JsonNode
-            var jsonObject = JsonNode.Parse(json) as JsonObject;
-
-            // Read the Membership_Reminder value
-            bool? membershipReminder = jsonObject?["Webinterface"]?["Membership_Reminder"]?.GetValue<bool>();
-
-            if (membershipReminder.HasValue)
-            {
-                if (membershipReminder.Value)
-                    await Membership_Reminder_Dialog();
-            }
-        }
-        catch (Exception ex)
-        {
-            Logging.Handler.Error("/dashboard -> Check_Member_Ship_Reminder", "Error", ex.ToString());
-        }
-    }
-
-    private bool membership_reminder_dialog_open = false;
-
-    private async Task Membership_Reminder_Dialog()
-    {
-        if (membership_reminder_dialog_open)
-            return;
-
-        var options = new DialogOptions
-            {
-                CloseButton = true,
-                FullWidth = true,
-                MaxWidth = MaxWidth.ExtraExtraLarge,
-                BackgroundClass = "dialog-blurring",
-            };
-
-        DialogParameters parameters = new DialogParameters();
-
-        membership_reminder_dialog_open = true;
-
-        await DialogService.Show<Shared.Membership_Reminder_Dialog>(String.Empty, parameters, options).Result;
-
-        membership_reminder_dialog_open = false;
     }
 
     #region Charts

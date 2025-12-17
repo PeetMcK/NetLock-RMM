@@ -113,7 +113,6 @@
             color: hsl(0deg 0% 50%) !important;
         }
 
-        .input-wrapper ion-icon,
         .input-wrapper .mud-icon-root {
             color: #910012 !important;
         }
@@ -218,9 +217,7 @@
         color: hsl(0deg 0% 50%) !important;
     }
 
-    .mud-theme-dark .input-wrapper ion-icon,
     .mud-theme-dark .input-wrapper .mud-icon-root,
-    body.mud-theme-dark .input-wrapper ion-icon,
     body.mud-theme-dark .input-wrapper .mud-icon-root {
         color: #910012 !important;
     }
@@ -350,7 +347,6 @@
         gap: 0.8em;
     }
 
-    .input-wrapper ion-icon,
     .input-wrapper .mud-icon-root {
         color: #910012;
         font-size: 1.3em;
@@ -611,7 +607,14 @@
         <div class="login-page-wrapper">
             <div class="screen-1">
                 <div class="logo-container">
-                    <img src="media/images/NetLock-RMM-Logo-Transparent.png" alt="NetLock RMM Logo" />
+                    @if (!string.IsNullOrEmpty(NetLock_RMM_Web_Console.Configuration.Web_Console.logoBase64))
+                    {
+                        <img src="@($"data:image/png;base64,{NetLock_RMM_Web_Console.Configuration.Web_Console.logoBase64}")" alt="Logo" style="max-height: 150px; max-width: 300px; object-fit: contain;" />
+                    }
+                    else
+                    {
+                        <img src="media/images/NetLock-RMM-Logo-Transparent.png" alt="NetLock RMM Logo" />
+                    }
                 </div>
 
                 <h2 class="login-title">@(auth_status == 1 ? Localizer["reset_password"] : "Welcome Back")</h2>
@@ -622,7 +625,7 @@
                     <div class="input-group">
                         <label for="username">@Localizer["username"]</label>
                         <div class="input-wrapper">
-                            <ion-icon name="mail-outline"></ion-icon>
+                            <MudIcon Icon="@Icons.Material.Outlined.Email" />
                             <input type="text" 
                                    @bind="@username" 
                                    @bind:event="oninput"
@@ -634,15 +637,17 @@
                     <div class="input-group">
                         <label for="password">@Localizer["password"]</label>
                         <div class="input-wrapper">
-                            <ion-icon name="lock-closed-outline"></ion-icon>
+                            <MudIcon Icon="@Icons.Material.Outlined.Lock" />
                             <input type="@(showPassword ? "text" : "password")" 
                                    @bind="@password" 
                                    @bind:event="oninput"
                                    @onkeydown="Enter"
                                    placeholder="············" />
-                            <ion-icon name="@(showPassword ? "eye-off-outline" : "eye-outline")" 
-                                     class="show-hide-icon"
-                                     @onclick="TogglePasswordVisibility"></ion-icon>
+                            <MudIconButton Icon="@(showPassword ? Icons.Material.Outlined.VisibilityOff : Icons.Material.Outlined.Visibility)" 
+                                          Class="show-hide-icon"
+                                          OnClick="TogglePasswordVisibility"
+                                          Size="Size.Small"
+                                          aria-label="Toggle password visibility" />
                         </div>
                     </div>
 
@@ -659,35 +664,35 @@
                         @if (isAzureAdEnabled)
                         {
                             <button class="sso-button" @onclick='() => NavigationManager.NavigateTo("/challenge/azuread", true)'>
-                                <ion-icon name="logo-microsoft"></ion-icon> Sign in with Microsoft
+                                <MudIcon Icon="@Icons.Custom.Brands.Microsoft" Size="Size.Small" /> Sign in with Microsoft
                             </button>
                         }
 
                         @if (isKeycloakEnabled)
                         {
                             <button class="sso-button" @onclick='() => NavigationManager.NavigateTo("/challenge/keycloak", true)'>
-                                <ion-icon name="key-outline"></ion-icon> Sign in with Keycloak
+                                <MudIcon Icon="@Icons.Material.Outlined.VpnKey" Size="Size.Small" /> Sign in with Keycloak
                             </button>
                         }
 
                         @if (isGoogleIdentityEnabled)
                         {
                             <button class="sso-button" @onclick='() => NavigationManager.NavigateTo("/challenge/google", true)'>
-                                <ion-icon name="logo-google"></ion-icon> Sign in with Google
+                                <MudIcon Icon="@Icons.Custom.Brands.Google" Size="Size.Small" /> Sign in with Google
                             </button>
                         }
 
                         @if (isOktaEnabled)
                         {
                             <button class="sso-button" @onclick='() => NavigationManager.NavigateTo("/challenge/okta", true)'>
-                                <ion-icon name="shield-checkmark-outline"></ion-icon> Sign in with Okta
+                                <MudIcon Icon="@Icons.Material.Outlined.Security" Size="Size.Small" /> Sign in with Okta
                             </button>
                         }
 
                         @if (isAuth0Enabled)
                         {
                             <button class="sso-button" @onclick='() => NavigationManager.NavigateTo("/challenge/auth0", true)'>
-                                <ion-icon name="lock-closed-outline"></ion-icon> Sign in with Auth0
+                                <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Small" /> Sign in with Auth0
                             </button>
                         }
                     }
@@ -706,7 +711,7 @@
                     <div class="input-group">
                         <label for="2fa-code">@Localizer["2factor_verification_code"]</label>
                         <div class="input-wrapper">
-                            <ion-icon name="keypad-outline"></ion-icon>
+                            <MudIcon Icon="@Icons.Material.Outlined.Dialpad" />
                             <input type="text" 
                                    @bind="@two_factor_codeInput" 
                                    @bind:event="oninput"
@@ -726,7 +731,7 @@
                     <div class="input-group">
                         <label for="2fa-code">@Localizer["2factor_verification_code"]</label>
                         <div class="input-wrapper">
-                            <ion-icon name="keypad-outline"></ion-icon>
+                            <MudIcon Icon="@Icons.Material.Outlined.Dialpad" />
                             <input type="text" 
                                    @bind="@two_factor_codeInput" 
                                    @bind:event="oninput"
@@ -745,30 +750,34 @@
                     <div class="input-group">
                         <label for="new-password">@Localizer["new_password"]</label>
                         <div class="input-wrapper">
-                            <ion-icon name="lock-closed-outline"></ion-icon>
+                            <MudIcon Icon="@Icons.Material.Outlined.Lock" />
                             <input type="@(showPassword ? "text" : "password")" 
                                    @bind="@password_new" 
                                    @bind:event="oninput"
                                    @onkeydown="Enter"
                                    placeholder="············" />
-                            <ion-icon name="@(showPassword ? "eye-off-outline" : "eye-outline")" 
-                                     class="show-hide-icon"
-                                     @onclick="TogglePasswordVisibility"></ion-icon>
+                            <MudIconButton Icon="@(showPassword ? Icons.Material.Outlined.VisibilityOff : Icons.Material.Outlined.Visibility)" 
+                                          Class="show-hide-icon"
+                                          OnClick="TogglePasswordVisibility"
+                                          Size="Size.Small"
+                                          aria-label="Toggle password visibility" />
                         </div>
                     </div>
 
                     <div class="input-group">
                         <label for="confirm-password">@Localizer["new_password_confirm"]</label>
                         <div class="input-wrapper">
-                            <ion-icon name="lock-closed-outline"></ion-icon>
+                            <MudIcon Icon="@Icons.Material.Outlined.Lock" />
                             <input type="@(showPasswordConfirm ? "text" : "password")" 
                                    @bind="@password_confirm_new" 
                                    @bind:event="oninput"
                                    @onkeydown="Enter"
                                    placeholder="············" />
-                            <ion-icon name="@(showPasswordConfirm ? "eye-off-outline" : "eye-outline")" 
-                                     class="show-hide-icon"
-                                     @onclick="TogglePasswordConfirmVisibility"></ion-icon>
+                            <MudIconButton Icon="@(showPasswordConfirm ? Icons.Material.Outlined.VisibilityOff : Icons.Material.Outlined.Visibility)" 
+                                          Class="show-hide-icon"
+                                          OnClick="TogglePasswordConfirmVisibility"
+                                          Size="Size.Small"
+                                          aria-label="Toggle password visibility" />
                         </div>
                     </div>
 
@@ -782,7 +791,7 @@
                     <div class="input-group">
                         <label for="username">@Localizer["username"]</label>
                         <div class="input-wrapper">
-                            <ion-icon name="mail-outline"></ion-icon>
+                            <MudIcon Icon="@Icons.Material.Outlined.Email" />
                             <input type="text" 
                                    @bind="@username" 
                                    @bind:event="oninput"
@@ -794,15 +803,17 @@
                     <div class="input-group">
                         <label for="password">@Localizer["password"]</label>
                         <div class="input-wrapper">
-                            <ion-icon name="lock-closed-outline"></ion-icon>
+                            <MudIcon Icon="@Icons.Material.Outlined.Lock" />
                             <input type="@(showPassword ? "text" : "password")" 
                                    @bind="@password" 
                                    @bind:event="oninput"
                                    @onkeydown="Enter"
                                    placeholder="············" />
-                            <ion-icon name="@(showPassword ? "eye-off-outline" : "eye-outline")" 
-                                     class="show-hide-icon"
-                                     @onclick="TogglePasswordVisibility"></ion-icon>
+                            <MudIconButton Icon="@(showPassword ? Icons.Material.Outlined.VisibilityOff : Icons.Material.Outlined.Visibility)" 
+                                          Class="show-hide-icon"
+                                          OnClick="TogglePasswordVisibility"
+                                          Size="Size.Small"
+                                          aria-label="Toggle password visibility" />
                         </div>
                     </div>
 
@@ -823,7 +834,7 @@
                     <div class="input-group">
                         <label for="2fa-code">@Localizer["2factor_verification_code"]</label>
                         <div class="input-wrapper">
-                            <ion-icon name="keypad-outline"></ion-icon>
+                            <MudIcon Icon="@Icons.Material.Outlined.Dialpad" />
                             <input type="text" 
                                    @bind="@two_factor_codeInput" 
                                    @bind:event="oninput"
@@ -843,7 +854,7 @@
                     <div class="input-group">
                         <label for="2fa-code">@Localizer["2factor_verification_code"]</label>
                         <div class="input-wrapper">
-                            <ion-icon name="keypad-outline"></ion-icon>
+                            <MudIcon Icon="@Icons.Material.Outlined.Dialpad" />
                             <input type="text" 
                                    @bind="@two_factor_codeInput" 
                                    @bind:event="oninput"
@@ -975,7 +986,7 @@
             
             Logging.Handler.Debug("/login", "State", "Logout confirmed, clearing URL flag");
             // Clear the logout flag from URL without reload (user is properly logged out)
-            NavigationManager.NavigateTo("/", false);
+            NavigationManager.NavigateTo("/", true);
         }
         else
         {
@@ -986,7 +997,7 @@
             if (user?.Identity is { IsAuthenticated: true })
             {
                 Logging.Handler.Debug("/login", "State", "User already authenticated, redirecting to dashboard");
-                NavigationManager.NavigateTo("/dashboard", true);
+                NavigationManager.NavigateTo("/dashboard", false);
                 return;
             }
         }
@@ -1221,9 +1232,9 @@
             await Permissions();
 
             if (permissions_dashboard_enabled)
-                NavigationManager.NavigateTo("/dashboard", true);
+                NavigationManager.NavigateTo("/dashboard", false);
             else if (!permissions_dashboard_enabled)
-                NavigationManager.NavigateTo("/home", true);
+                NavigationManager.NavigateTo("/home", false);
         }
         catch (Exception ex)
         {
@@ -1287,7 +1298,7 @@
         two_factor_qrCodeImageUrl = setupInfo.QrCodeSetupImageUrl;
         two_factor_manualEntrySetupCode = setupInfo.ManualEntryKey;
 
-        // The code is expected after the setup        
+        // The code is expected after the setup
         message = "Please scan the QR code or manually enter the setup code, then enter the verification code.";
     }
 

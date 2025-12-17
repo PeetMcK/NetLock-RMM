@@ -11,6 +11,7 @@
 @using System.Net.Http.Headers;
 @using System.Net;
 @using System.Security.Claims
+@using NetLock_RMM_Web_Console.Classes.Authentication
 
 @inject NavigationManager NavigationManager
 @inject ILocalStorageService localStorage
@@ -448,25 +449,52 @@
                     </MudTabPanel>
                     }
                 <MudTabPanel Text="Updates">
-                    <MudPaper Class="mt-0">
-                        <MudText Class="ml-2" Typo="Typo.h6">Automatic agent updates</MudText>
+                    <MudPaper Class="mt-0 pa-4">
+                        <MudText Typo="Typo.h6">Automatic Agent Updates</MudText>
+                        
+                        <MudAlert Class="mt-3 mb-4" Severity="Severity.Info" Icon="@Icons.Material.Filled.Info">
+                            <strong>Global Master Switches:</strong> These settings act as global master switches for automatic agent updates.
+                            <br/>• When enabled here, you <strong>must also enable</strong> agent updates in the policy assigned to each device.
+                            <br/>• Both the global switch (here) AND the policy setting must be enabled for updates to work.
+                            <br/>• If disabled here, no automatic updates will occur regardless of policy settings.
+                        </MudAlert>
+
+                        <MudText Typo="Typo.subtitle1" Class="mb-2"><strong>Platform-specific Master Switches:</strong></MudText>
                         <MudSwitch Class="ml-2" @bind-Value="agent_updates_windows_enabled" Color="Color.Primary">Windows</MudSwitch>
                         <MudSwitch Class="ml-2" @bind-Value="agent_updates_linux_enabled" Color="Color.Primary">Linux</MudSwitch>
                         <MudSwitch Class="ml-2" @bind-Value="agent_updates_macos_enabled" Color="Color.Primary">MacOS</MudSwitch>
                         
-                        <div style="display: flex; align-items: center; max-width: 350px;">
-                            <MudNumericField 
-                                Class="ml-2" 
-                                @bind-Value="agent_updates_max_concurrent_updates" 
-                                Label="Max concurrent installations & updates"
-                                Variant="Variant.Text" 
-                                Min="1" 
-                                Max="@(Configuration.Members_Portal.IsCloudEnabled ? 50 : 9999)" />
-
-                            <MudTooltip Text="Controls how many concurrent agent installations & updates are allowed by the backend. Choose a value appropriate for your available CPU, memory, and bandwidth to prevent resource shortage & failed update processes.">
-                                <MudIconButton Class="ml-2 mt-5" Icon="@Icons.Material.Filled.Info" Variant="Variant.Text" Size="Size.Small" Color="Color.Default"></MudIconButton>
-                            </MudTooltip>
-                        </div>
+                        <MudDivider Class="my-4" />
+                        
+                        <MudText Typo="Typo.subtitle1" Class="mb-2"><strong>Concurrent Limit:</strong></MudText>
+                        
+                        <MudAlert Class="mb-3" Severity="Severity.Info" Icon="@Icons.Material.Filled.Rocket">
+                            <strong>NetLock State-of-the-Art High-Performance Backend:</strong>
+                            <br/>• NetLock uses a cutting-edge high-performance backend that loads and caches installation packages in RAM
+                            <br/>• This state-of-the-art architecture means the primary limitation is your available <strong>network bandwidth</strong>, not CPU or memory
+                            <br/>• Massive rollouts are possible with minimal resource impact on the backend server
+                            <br/>• The concurrent limit mainly controls how many simultaneous network connections are used
+                            <br/>• Perfect for enterprise-scale deployments with thousands of agents
+                        </MudAlert>
+                        
+                        <MudAlert Class="mb-3" Severity="Severity.Warning" Icon="@Icons.Material.Filled.Speed">
+                            <strong>Controls concurrent agent installations & updates:</strong>
+                            <br/>• Applies to both automatic agent updates AND initial agent installations via installer
+                            <br/>• Limits how many agents can be installed/updated simultaneously by the backend
+                            <br/>• Choose a value appropriate for your available <strong>bandwidth</strong>
+                            <br/>• Lower values prevent bandwidth saturation and network congestion
+                            <br/>• Higher values allow faster rollout if you have sufficient bandwidth available
+                            <br/>• <strong>Note:</strong> Consider your MySQL database server resources, as each installation/update process writes to the database in the background
+                        </MudAlert>
+                        
+                        <MudNumericField 
+                            Class="ml-2" 
+                            @bind-Value="agent_updates_max_concurrent_updates" 
+                            Label="Max concurrent installations & updates"
+                            Variant="Variant.Text" 
+                            Min="1" 
+                            Max="@(Configuration.Members_Portal.IsCloudEnabled ? 50 : 9999)" 
+                            Style="max-width: 350px;" />
                         
                         <MudButton Class="ml-2 mt-3 mb-2" Size="Size.Small" Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Save" OnClick="@SaveAgentUpdates">Save</MudButton>
                     </MudPaper>
@@ -474,17 +502,26 @@
                 @if (!Configuration.Members_Portal.IsCloudEnabled)
                 {
                     <MudTabPanel Text="Database">
-                        <MudPaper Class="mt-0">
-                            <MudText Class="ml-2" Typo="Typo.h6">Clean Up & Optimize Database</MudText>
-                            <MudText Class="mt-2 ml-2" Typo="Typo.body1">
-                                Automatic cleanup of the database.
+                        <MudPaper Class="mt-0 pa-4">
+                            <MudText Typo="Typo.h6">Clean Up & Optimize Database</MudText>
+                            <MudText Class="mt-2" Typo="Typo.body1">
+                                Automatic cleanup of historical database entries to manage storage space and optimize performance.
                             </MudText>
+
+                            <MudAlert Class="mt-3 mb-4" Severity="Severity.Warning" Icon="@Icons.Material.Filled.Storage">
+                                <strong>Important: Data Storage Considerations</strong>
+                                <br/>• With many devices and <strong>short sync intervals</strong> (configured in policies), the database can grow to <strong>very large sizes</strong>
+                                <br/>• Historical data accumulates rapidly and can consume significant disk storage
+                                <br/>• Regular cleanup is essential to prevent database performance degradation and storage issues
+                                <br/>• Consider your available disk space when setting retention periods
+                            </MudAlert>
 
                             <MudGrid>
                                 <MudItem xs="12" md="6">
                                     <MudCard Class="ml-2 mb-4">
                                         <MudCardContent>
                                             <MudCheckBox T="bool" @bind-Value="cleanup_applications_drivers_history_enabled" Label="Applications Drivers History" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);"><strong>Very high volume data.</strong> Historical data of installed drivers on devices. Recommended: <strong>30-60 days</strong>.</MudText>
                                             <MudNumericField Class="mt-2" @bind-Value="cleanup_applications_drivers_history_days" Label="Older than X days" Variant="Variant.Text" Min="1" Max="9999" />
                                         </MudCardContent>
                                     </MudCard>
@@ -494,6 +531,7 @@
                                     <MudCard Class="ml-2 mb-4">
                                         <MudCardContent>
                                             <MudCheckBox T="bool" @bind-Value="cleanup_applications_installed_history_enabled" Label="Applications Installed History" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);"><strong>Very high volume data.</strong> Historical data of installed applications. Useful for tracking software changes. Recommended: <strong>30-60 days</strong>.</MudText>
                                             <MudNumericField Class="mt-2" @bind-Value="cleanup_applications_installed_history_days" Label="Older than X days" Variant="Variant.Text" Min="1" Max="9999" />
                                         </MudCardContent>
                                     </MudCard>
@@ -503,6 +541,7 @@
                                     <MudCard Class="ml-2 mb-4">
                                         <MudCardContent>
                                             <MudCheckBox T="bool" @bind-Value="cleanup_applications_logon_history_enabled" Label="Applications Logon History" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);"><strong>Very high volume data.</strong> User logon history and session data. Recommended: <strong>30-60 days</strong>.</MudText>
                                             <MudNumericField Class="mt-2" @bind-Value="cleanup_applications_logon_history_days" Label="Older than X days" Variant="Variant.Text" Min="1" Max="9999" />
                                         </MudCardContent>
                                     </MudCard>
@@ -512,6 +551,7 @@
                                     <MudCard Class="ml-2 mb-4">
                                         <MudCardContent>
                                             <MudCheckBox T="bool" @bind-Value="cleanup_applications_scheduled_tasks_history_enabled" Label="Applications Scheduled Tasks History" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);"><strong>Very high volume data.</strong> Historical data of scheduled tasks changes. Recommended: <strong>30-60 days</strong>.</MudText>
                                             <MudNumericField Class="mt-2" @bind-Value="cleanup_applications_scheduled_tasks_history_days" Label="Older than X days" Variant="Variant.Text" Min="1" Max="9999" />
                                         </MudCardContent>
                                     </MudCard>
@@ -521,6 +561,7 @@
                                     <MudCard Class="ml-2 mb-4">
                                         <MudCardContent>
                                             <MudCheckBox T="bool" @bind-Value="cleanup_applications_services_history_enabled" Label="Applications Services History" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);"><strong>Very high volume data.</strong> Historical data of Windows/Linux/macOS services. Recommended: <strong>30-60 days</strong>.</MudText>
                                             <MudNumericField Class="mt-2" @bind-Value="cleanup_applications_services_history_days" Label="Older than X days" Variant="Variant.Text" Min="1" Max="9999" />
                                         </MudCardContent>
                                     </MudCard>
@@ -530,6 +571,7 @@
                                     <MudCard Class="ml-2 mb-4">
                                         <MudCardContent>
                                             <MudCheckBox T="bool" @bind-Value="cleanup_device_information_antivirus_products_history_enabled" Label="Device Information Antivirus Products History" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);"><strong>Very high volume data.</strong> Antivirus product status and configuration history. Recommended: <strong>60-90 days</strong>.</MudText>
                                             <MudNumericField Class="mt-2" @bind-Value="cleanup_device_information_antivirus_products_history_days" Label="Older than X days" Variant="Variant.Text" Min="1" Max="9999" />
                                         </MudCardContent>
                                     </MudCard>
@@ -539,6 +581,7 @@
                                     <MudCard Class="ml-2 mb-4">
                                         <MudCardContent>
                                             <MudCheckBox T="bool" @bind-Value="cleanup_device_information_cpu_history_enabled" Label="Device information CPU history" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">CPU usage metrics. High volume data with short sync intervals. Recommended: 30-90 days.</MudText>
                                             <MudNumericField Class="mt-2" @bind-Value="cleanup_device_information_cpu_history_days" Label="Older than X days" Variant="Variant.Text" Min="1" Max="9999" />
                                         </MudCardContent>
                                     </MudCard>
@@ -548,6 +591,7 @@
                                     <MudCard Class="ml-2 mb-4">
                                         <MudCardContent>
                                             <MudCheckBox T="bool" @bind-Value="cleanup_device_information_cronjobs_history_enabled" Label="Device information cronjobs history" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Cronjob configuration history (Linux/macOS). Recommended: 90-180 days.</MudText>
                                             <MudNumericField Class="mt-2" @bind-Value="cleanup_device_information_cronjobs_history_days" Label="Older than X days" Variant="Variant.Text" Min="1" Max="9999" />
                                         </MudCardContent>
                                     </MudCard>
@@ -557,6 +601,7 @@
                                     <MudCard Class="ml-2 mb-4">
                                         <MudCardContent>
                                             <MudCheckBox T="bool" @bind-Value="cleanup_device_information_disks_history_enabled" Label="Device information disks history" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Disk space usage metrics. High volume data. Recommended: 30-90 days.</MudText>
                                             <MudNumericField Class="mt-2" @bind-Value="cleanup_device_information_disks_history_days" Label="Older than X days" Variant="Variant.Text" Min="1" Max="9999" />
                                         </MudCardContent>
                                     </MudCard>
@@ -566,6 +611,7 @@
                                     <MudCard Class="ml-2 mb-4">
                                         <MudCardContent>
                                             <MudCheckBox T="bool" @bind-Value="cleanup_device_information_general_history_enabled" Label="Device information general history" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);"><strong>Very high volume data.</strong> General device information changes (hostname, OS version, etc.). Recommended: <strong>60-90 days</strong>.</MudText>
                                             <MudNumericField Class="mt-2" @bind-Value="cleanup_device_information_general_history_days" Label="Older than X days" Variant="Variant.Text" Min="1" Max="9999" />
                                         </MudCardContent>
                                     </MudCard>
@@ -575,6 +621,7 @@
                                     <MudCard Class="ml-2 mb-4">
                                         <MudCardContent>
                                             <MudCheckBox T="bool" @bind-Value="cleanup_device_information_history_enabled" Label="Device information history" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Device configuration history snapshots. Recommended: 180-365 days.</MudText>
                                             <MudNumericField Class="mt-2" @bind-Value="cleanup_device_information_history_days" Label="Older than X days" Variant="Variant.Text" Min="1" Max="9999" />
                                         </MudCardContent>
                                     </MudCard>
@@ -584,6 +631,7 @@
                                     <MudCard Class="ml-2 mb-4">
                                         <MudCardContent>
                                             <MudCheckBox T="bool" @bind-Value="cleanup_device_information_network_adapters_history_enabled" Label="Device information network adapters history" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Network adapter configuration history. Recommended: 90-180 days.</MudText>
                                             <MudNumericField Class="mt-2" @bind-Value="cleanup_device_information_network_adapters_history_days" Label="Older than X days" Variant="Variant.Text" Min="1" Max="9999" />
                                         </MudCardContent>
                                     </MudCard>
@@ -593,6 +641,7 @@
                                     <MudCard Class="ml-2 mb-4">
                                         <MudCardContent>
                                             <MudCheckBox T="bool" @bind-Value="cleanup_device_information_ram_history_enabled" Label="Device information RAM history" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">RAM usage metrics. High volume data with short sync intervals. Recommended: 30-90 days.</MudText>
                                             <MudNumericField Class="mt-2" @bind-Value="cleanup_device_information_ram_history_days" Label="Older than X days" Variant="Variant.Text" Min="1" Max="9999" />
                                         </MudCardContent>
                                     </MudCard>
@@ -602,6 +651,7 @@
                                     <MudCard Class="ml-2 mb-4">
                                         <MudCardContent>
                                             <MudCheckBox T="bool" @bind-Value="cleanup_device_information_task_manager_history_enabled" Label="Device information task manager history" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);"><strong>Extremely high volume data!</strong> Running processes history. Can grow rapidly with short sync intervals. Recommended: <strong>7-30 days</strong>.</MudText>
                                             <MudNumericField Class="mt-2" @bind-Value="cleanup_device_information_task_manager_history_days" Label="Older than X days" Variant="Variant.Text" Min="1" Max="9999" />
                                         </MudCardContent>
                                     </MudCard>
@@ -611,6 +661,7 @@
                                     <MudCard Class="ml-2 mb-4">
                                         <MudCardContent>
                                             <MudCheckBox T="bool" @bind-Value="cleanup_events_history_enabled" Label="Events history" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption" Class="mb-2" Style="color: var(--mud-palette-text-secondary);"><strong>Critical:</strong> Sensor events, job execution logs, and system events. <strong>Minimum recommended: 365 days</strong> for compliance and audit purposes.</MudText>
                                             <MudNumericField Class="mt-2" @bind-Value="cleanup_events_history_days" Label="Older than X days" Variant="Variant.Text" Min="1" Max="9999" />
                                         </MudCardContent>
                                     </MudCard>
@@ -648,6 +699,1292 @@
                         <MudButton Class="ml-2 mt-2 mb-3" Size="Size.Small" Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Save" OnClick="@SaveRemoteScreenSessionRecordingSettings">Save</MudButton>
                     </MudPaper>
                 </MudTabPanel>
+
+                <MudTabPanel Text="IP Whitelist">
+                        <MudTabs Class="mt-0" Elevation="2" Rounded="true" ApplyEffectsToContainer="true">
+                            
+                            <!-- Web Console IP Whitelist -->
+                            <MudTabPanel Text="Web Console" Icon="@Icons.Material.Filled.Computer">
+                                <MudPaper Class="mt-0">
+                                    <MudText Class="ml-2" Typo="Typo.h6">IP Whitelist for Web Console</MudText>
+                                    
+                                    <MudAlert Class="mt-2 ml-2 mr-2" Severity="Severity.Info" Icon="@Icons.Material.Filled.Info">
+                                        Configure IP addresses that are allowed to access the Web Console. Enter IP addresses separated by commas.<br/>
+                                        Leave empty to allow access from all IPs. <strong>The application will restart after saving.</strong>
+                                    </MudAlert>
+                                    
+                                    <MudTextField 
+                                        Class="ml-2 mr-2 mt-3" 
+                                        T="string" 
+                                        Variant="Variant.Outlined" 
+                                        Label="Allowed IP Addresses (comma-separated)" 
+                                        @bind-Value="ipWhitelistWebConsoleInput" 
+                                        Lines="5"
+                                        Immediate="true"
+                                        HelperText="Example: 192.168.1.100, 10.0.0.5, 172.16.0.1" />
+                                    
+                                    @if (!string.IsNullOrEmpty(ipWhitelistWebConsoleValidationError))
+                                    {
+                                        <MudAlert Class="mt-2 ml-2 mr-2" Severity="Severity.Error" Icon="@Icons.Material.Filled.Error">
+                                            @ipWhitelistWebConsoleValidationError
+                                        </MudAlert>
+                                    }
+                                    
+                                    <MudButton Class="ml-2 mt-3 mb-3" Size="Size.Small" Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Save" OnClick="@SaveIpWhitelistWebConsole">Save & Restart</MudButton>
+                                </MudPaper>
+                            </MudTabPanel>
+                            
+                            <!-- Backend IP Whitelist -->
+                            <MudTabPanel Text="Backend" Icon="@Icons.Material.Filled.Dns">
+                                <MudPaper Class="mt-0">
+                                    <MudText Class="ml-2" Typo="Typo.h6">IP Whitelist for Backend</MudText>
+                                    
+                                    <MudAlert Class="mt-2 ml-2 mr-2" Severity="Severity.Info" Icon="@Icons.Material.Filled.Info">
+                                        Configure IP addresses that are allowed to access the Backend services. Enter IP addresses separated by commas.<br/>
+                                        Leave empty to allow access from all IPs. <strong>This configuration will be applied when the backend services restart.</strong>
+                                    </MudAlert>
+                                    
+                                    <MudTextField 
+                                        Class="ml-2 mr-2 mt-3" 
+                                        T="string" 
+                                        Variant="Variant.Outlined" 
+                                        Label="Allowed IP Addresses (comma-separated)" 
+                                        @bind-Value="ipWhitelistBackendInput" 
+                                        Lines="5"
+                                        Immediate="true"
+                                        HelperText="Example: 192.168.1.100, 10.0.0.5, 172.16.0.1" />
+                                    
+                                    @if (!string.IsNullOrEmpty(ipWhitelistBackendValidationError))
+                                    {
+                                        <MudAlert Class="mt-2 ml-2 mr-2" Severity="Severity.Error" Icon="@Icons.Material.Filled.Error">
+                                            @ipWhitelistBackendValidationError
+                                        </MudAlert>
+                                    }
+                                    
+                                    <MudButton Class="ml-2 mt-3 mb-3" Size="Size.Small" Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Save" OnClick="@SaveIpWhitelistBackend">Save</MudButton>
+                                </MudPaper>
+                            </MudTabPanel>
+                            
+                        </MudTabs>
+                    </MudTabPanel>
+                    
+                    <MudTabPanel Text="Single Sign-On (SSO)">
+                        <MudPaper Class="mt-0">
+                            <MudText Class="ml-2" Typo="Typo.h6">Single Sign-On Configuration</MudText>
+                            
+                            @if (Configuration.Sso.ConfigurationError)
+                            {
+                                <MudAlert Class="mt-2 ml-2 mr-2" Severity="Severity.Error" Icon="@Icons.Material.Filled.Error">
+                                    <strong>SSO Configuration Error!</strong><br/>
+                                    The SSO configuration could not be loaded during application startup and SSO is currently <strong>DISABLED</strong>.<br/>
+                                    <br/>
+                                    <strong>Error:</strong> @Configuration.Sso.ConfigurationErrorMessage<br/>
+                                    <br/>
+                                    Please verify your SSO configuration below and save it. The application will automatically restart after saving.
+                                </MudAlert>
+                            }
+                            
+                            <MudAlert Class="mt-2 ml-2 mr-2" Severity="Severity.Info" Icon="@Icons.Material.Filled.Info">
+                                You can only enable <strong>one SSO provider</strong> at a time. Enabling a new provider will automatically disable the others.
+                            </MudAlert>
+                            
+                            <MudTabs Class="mt-3" Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
+                                
+                                <!-- Azure AD -->
+                                <MudTabPanel Text="Azure AD" Icon="@Icons.Material.Filled.Cloud">
+                                    <MudSwitch Class="mb-3" Color="Color.Primary" Value="@azureAdEnabled" ValueChanged="@((bool val) => OnProviderEnabledChanged(val, "AzureAd"))" Label="Enable Azure AD"></MudSwitch>
+                                    
+                                    <MudTextField Class="mb-2" @bind-Value="azureAdInstance" Label="Instance" Variant="Variant.Outlined" HelperText="e.g., https://login.microsoftonline.com/" />
+                                    <MudTextField Class="mb-2" @bind-Value="azureAdDomain" Label="Domain" Variant="Variant.Outlined" HelperText="e.g., your-domain.onmicrosoft.com" />
+                                    <MudTextField Class="mb-2" @bind-Value="azureAdTenantId" Label="Tenant ID" Variant="Variant.Outlined" />
+                                    <MudTextField Class="mb-2" @bind-Value="azureAdClientId" Label="Client ID" Variant="Variant.Outlined" />
+                                    <MudTextField Class="mb-2" @bind-Value="azureAdClientSecret" Label="Client Secret" Variant="Variant.Outlined" InputType="InputType.Password" />
+                                    <MudTextField Class="mb-2" @bind-Value="azureAdCallbackPath" Label="Callback Path" Variant="Variant.Outlined" HelperText="e.g., /signin-oidc" />
+                                    <MudTextField Class="mb-2" @bind-Value="azureAdSignedOutCallbackPath" Label="Signed Out Callback Path" Variant="Variant.Outlined" HelperText="e.g., /signout-callback-oidc" />
+                                    <MudTextField Class="mb-2" @bind-Value="azureAdResponseType" Label="Response Type" Variant="Variant.Outlined" HelperText="e.g., code" />
+                                    <MudSwitch Class="mb-3" Color="Color.Primary" @bind-Value="azureAdSaveTokens" Label="Save Tokens"></MudSwitch>
+                                </MudTabPanel>
+
+                                <!-- Keycloak -->
+                                <MudTabPanel Text="Keycloak" Icon="@Icons.Material.Filled.Security">
+                                    <MudSwitch Class="mb-3" Color="Color.Primary" Value="@keycloakEnabled" ValueChanged="@((bool val) => OnProviderEnabledChanged(val, "Keycloak"))" Label="Enable Keycloak"></MudSwitch>
+                                    
+                                    <MudTextField Class="mb-2" @bind-Value="keycloakAuthority" Label="Authority" Variant="Variant.Outlined" HelperText="e.g., https://keycloak.example.com/realms/your-realm" />
+                                    <MudTextField Class="mb-2" @bind-Value="keycloakRealm" Label="Realm" Variant="Variant.Outlined" />
+                                    <MudTextField Class="mb-2" @bind-Value="keycloakClientId" Label="Client ID" Variant="Variant.Outlined" />
+                                    <MudTextField Class="mb-2" @bind-Value="keycloakClientSecret" Label="Client Secret" Variant="Variant.Outlined" InputType="InputType.Password" />
+                                    <MudTextField Class="mb-2" @bind-Value="keycloakCallbackPath" Label="Callback Path" Variant="Variant.Outlined" HelperText="e.g., /signin-keycloak" />
+                                    <MudTextField Class="mb-2" @bind-Value="keycloakSignedOutCallbackPath" Label="Signed Out Callback Path" Variant="Variant.Outlined" HelperText="e.g., /signout-callback-keycloak" />
+                                    <MudTextField Class="mb-2" @bind-Value="keycloakResponseType" Label="Response Type" Variant="Variant.Outlined" HelperText="e.g., code" />
+                                    <MudSwitch Class="mb-2" Color="Color.Primary" @bind-Value="keycloakSaveTokens" Label="Save Tokens"></MudSwitch>
+                                    <MudSwitch Class="mb-2" Color="Color.Primary" @bind-Value="keycloakGetClaimsFromUserInfoEndpoint" Label="Get Claims From UserInfo Endpoint"></MudSwitch>
+                                    <MudSwitch Class="mb-3" Color="Color.Primary" @bind-Value="keycloakRequireHttpsMetadata" Label="Require HTTPS Metadata"></MudSwitch>
+                                </MudTabPanel>
+
+                                <!-- Google Identity -->
+                                <MudTabPanel Text="Google" Icon="@Icons.Custom.Brands.Google">
+                                    <MudSwitch Class="mb-3" Color="Color.Primary" Value="@googleEnabled" ValueChanged="@((bool val) => OnProviderEnabledChanged(val, "Google"))" Label="Enable Google Identity"></MudSwitch>
+                                    
+                                    <MudTextField Class="mb-2" @bind-Value="googleClientId" Label="Client ID" Variant="Variant.Outlined" HelperText="e.g., your-client-id.apps.googleusercontent.com" />
+                                    <MudTextField Class="mb-2" @bind-Value="googleClientSecret" Label="Client Secret" Variant="Variant.Outlined" InputType="InputType.Password" />
+                                    <MudTextField Class="mb-2" @bind-Value="googleCallbackPath" Label="Callback Path" Variant="Variant.Outlined" HelperText="e.g., /signin-google" />
+                                    <MudTextField Class="mb-2" @bind-Value="googleSignedOutCallbackPath" Label="Signed Out Callback Path" Variant="Variant.Outlined" HelperText="e.g., /signout-callback-google" />
+                                    <MudTextField Class="mb-2" @bind-Value="googleHostedDomain" Label="Hosted Domain (Optional)" Variant="Variant.Outlined" HelperText="Restrict to specific Google Workspace domain" />
+                                    <MudSwitch Class="mb-3" Color="Color.Primary" @bind-Value="googleSaveTokens" Label="Save Tokens"></MudSwitch>
+                                </MudTabPanel>
+
+                                <!-- Okta -->
+                                <MudTabPanel Text="Okta" Icon="@Icons.Material.Filled.VpnKey">
+                                    <MudSwitch Class="mb-3" Color="Color.Primary" Value="@oktaEnabled" ValueChanged="@((bool val) => OnProviderEnabledChanged(val, "Okta"))" Label="Enable Okta"></MudSwitch>
+                                    
+                                    <MudTextField Class="mb-2" @bind-Value="oktaDomain" Label="Domain" Variant="Variant.Outlined" HelperText="e.g., dev-12345.okta.com" />
+                                    <MudTextField Class="mb-2" @bind-Value="oktaClientId" Label="Client ID" Variant="Variant.Outlined" />
+                                    <MudTextField Class="mb-2" @bind-Value="oktaClientSecret" Label="Client Secret" Variant="Variant.Outlined" InputType="InputType.Password" />
+                                    <MudTextField Class="mb-2" @bind-Value="oktaCallbackPath" Label="Callback Path" Variant="Variant.Outlined" HelperText="e.g., /signin-okta" />
+                                    <MudTextField Class="mb-2" @bind-Value="oktaSignedOutCallbackPath" Label="Signed Out Callback Path" Variant="Variant.Outlined" HelperText="e.g., /signout-callback-okta" />
+                                    <MudTextField Class="mb-2" @bind-Value="oktaAuthorizationServerId" Label="Authorization Server ID (Optional)" Variant="Variant.Outlined" HelperText="e.g., default" />
+                                    <MudSwitch Class="mb-2" Color="Color.Primary" @bind-Value="oktaSaveTokens" Label="Save Tokens"></MudSwitch>
+                                    <MudSwitch Class="mb-3" Color="Color.Primary" @bind-Value="oktaGetClaimsFromUserInfoEndpoint" Label="Get Claims From UserInfo Endpoint"></MudSwitch>
+                                </MudTabPanel>
+
+                                <!-- Auth0 -->
+                                <MudTabPanel Text="Auth0" Icon="@Icons.Material.Filled.Lock">
+                                    <MudSwitch Class="mb-3" Color="Color.Primary" Value="@auth0Enabled" ValueChanged="@((bool val) => OnProviderEnabledChanged(val, "Auth0"))" Label="Enable Auth0"></MudSwitch>
+                                    
+                                    <MudTextField Class="mb-2" @bind-Value="auth0Domain" Label="Domain" Variant="Variant.Outlined" HelperText="e.g., your-tenant.auth0.com" />
+                                    <MudTextField Class="mb-2" @bind-Value="auth0ClientId" Label="Client ID" Variant="Variant.Outlined" />
+                                    <MudTextField Class="mb-2" @bind-Value="auth0ClientSecret" Label="Client Secret" Variant="Variant.Outlined" InputType="InputType.Password" />
+                                    <MudTextField Class="mb-2" @bind-Value="auth0CallbackPath" Label="Callback Path" Variant="Variant.Outlined" HelperText="e.g., /signin-auth0" />
+                                    <MudTextField Class="mb-2" @bind-Value="auth0SignedOutCallbackPath" Label="Signed Out Callback Path" Variant="Variant.Outlined" HelperText="e.g., /signout-callback-auth0" />
+                                    <MudTextField Class="mb-2" @bind-Value="auth0Audience" Label="Audience (Optional)" Variant="Variant.Outlined" HelperText="API Identifier for custom API" />
+                                    <MudSwitch Class="mb-3" Color="Color.Primary" @bind-Value="auth0SaveTokens" Label="Save Tokens"></MudSwitch>
+                                </MudTabPanel>
+
+                            </MudTabs>
+
+                            <MudButton Class="ml-2 mt-3 mb-3" Size="Size.Small" Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Save" OnClick="@SaveSsoSettings">Save</MudButton>
+                        </MudPaper>
+                    </MudTabPanel>
+                    
+                    <MudTabPanel Text="Whitelabeling">
+                        <MudTabs Class="mt-0" Elevation="2" Rounded="true" ApplyEffectsToContainer="true">
+                            
+                            <!-- Web Console Title -->
+                            <MudTabPanel Text="Web Console Title" Icon="@Icons.Material.Filled.Title">
+                                <MudPaper Class="mt-0">
+                                    <MudAlert Class="ml-2 mr-2" Severity="Severity.Info" Icon="@Icons.Material.Filled.Info">
+                                        Configure the title that will be displayed in the web console.<br/>
+                                        <strong>Changes will apply after the web console application has been restarted.</strong>
+                                    </MudAlert>
+                                    
+                                    <MudTextField 
+                                        Class="ml-2 mr-2 mt-3" 
+                                        T="string" 
+                                        Variant="Variant.Outlined" 
+                                        Label="Web Console Title" 
+                                        @bind-Value="webConsoleTitleInput" 
+                                        Immediate="true"
+                                        HelperText="Example: NetLock RMM" />
+                                    
+                                    @if (!string.IsNullOrEmpty(webConsoleTitleValidationError))
+                                    {
+                                        <MudAlert Class="mt-2 ml-2 mr-2" Severity="Severity.Error" Icon="@Icons.Material.Filled.Error">
+                                            @webConsoleTitleValidationError
+                                        </MudAlert>
+                                    }
+                                    
+                                    <MudButton Class="ml-2 mt-3 mb-3" Size="Size.Small" Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Save" OnClick="@SaveWebConsoleTitle">Save & Restart</MudButton>
+                                </MudPaper>
+                            </MudTabPanel>
+                            
+                            <!-- Web Console Logo -->
+                            <MudTabPanel Text="Web Console Logo" Icon="@Icons.Material.Filled.Image">
+                                <MudPaper Class="mt-0">
+                                    <MudAlert Class="ml-2 mr-2" Severity="Severity.Info" Icon="@Icons.Material.Filled.Info">
+                                        Upload a custom logo for the web console. Recommended size: 200x50 pixels (PNG or JPG).<br/>
+                                        <strong>Changes will apply after the web console application has been restarted.</strong>
+                                    </MudAlert>
+                                    
+                                    <!-- Current Logo Preview -->
+                                    @if (!string.IsNullOrEmpty(webConsoleLogoBase64))
+                                    {
+                                        <MudText Class="ml-2 mt-3" Typo="Typo.subtitle2">Current Logo:</MudText>
+                                        <MudPaper Class="ml-2 mr-2 mt-2 pa-3" Elevation="0" Style="border: 1px solid #ccc; max-width: 400px;">
+                                            <img src="@($"data:image/png;base64,{webConsoleLogoBase64}")" alt="Current Logo" style="max-width: 100%; height: auto; max-height: 100px;" />
+                                        </MudPaper>
+                                    }
+                                    
+                                    <!-- File Upload -->
+                                    <MudFileUpload T="IBrowserFile"
+                                                   Class="ml-2 mr-2 mt-3"
+                                                   Accept="image/png,image/jpeg,image/jpg"
+                                                   FilesChanged="@OnLogoFileSelected"
+                                                   MaximumFileCount="1">
+                                        <ButtonTemplate>
+                                            <MudButton HtmlTag="label"
+                                                       Variant="Variant.Filled"
+                                                       Color="Color.Primary"
+                                                       StartIcon="@Icons.Material.Filled.CloudUpload"
+                                                       for="@context">
+                                                Choose Logo File
+                                            </MudButton>
+                                        </ButtonTemplate>
+                                    </MudFileUpload>
+                                    
+                                    @if (!string.IsNullOrEmpty(selectedLogoFileName))
+                                    {
+                                        <MudText Class="ml-2 mt-2" Typo="Typo.body2">Selected file: @selectedLogoFileName</MudText>
+                                    }
+                                    
+                                    <!-- New Logo Preview -->
+                                    @if (!string.IsNullOrEmpty(webConsoleLogoPreviewBase64))
+                                    {
+                                        <MudText Class="ml-2 mt-3" Typo="Typo.subtitle2">Preview:</MudText>
+                                        <MudPaper Class="ml-2 mr-2 mt-2 pa-3" Elevation="0" Style="border: 1px solid #ccc; max-width: 400px;">
+                                            <img src="@($"data:image/png;base64,{webConsoleLogoPreviewBase64}")" alt="Logo Preview" style="max-width: 100%; height: auto; max-height: 100px;" />
+                                        </MudPaper>
+                                    }
+
+                                    @if (!string.IsNullOrEmpty(webConsoleLogoValidationError))
+                                    {
+                                        <MudAlert Class="mt-2 ml-2 mr-2" Severity="Severity.Error" Icon="@Icons.Material.Filled.Error">
+                                            @webConsoleLogoValidationError
+                                        </MudAlert>
+                                    }
+                                    
+                                    <MudStack Row="true" Class="ml-2 mt-3 mb-3">
+                                        <MudButton Size="Size.Small" 
+                                                   Variant="Variant.Filled" 
+                                                   Color="Color.Success" 
+                                                   StartIcon="@Icons.Material.Filled.Save" 
+                                                   OnClick="@SaveWebConsoleLogo"
+                                                   Disabled="@string.IsNullOrEmpty(webConsoleLogoPreviewBase64)">
+                                            Save & Restart
+                                        </MudButton>
+                                        
+                                        @if (!string.IsNullOrEmpty(webConsoleLogoBase64))
+                                        {
+                                            <MudButton Size="Size.Small" 
+                                                       Variant="Variant.Filled" 
+                                                       Color="Color.Error" 
+                                                       StartIcon="@Icons.Material.Filled.Delete" 
+                                                       OnClick="@RemoveWebConsoleLogo">
+                                                Remove Logo & Restart
+                                            </MudButton>
+                                        }
+                                    </MudStack>
+                                </MudPaper>
+                            </MudTabPanel>
+                            
+                            <!-- Theme Palette -->
+                            <MudTabPanel Text="Theme Palette" Icon="@Icons.Material.Filled.Palette">
+                                <MudPaper Class="mt-0 pa-4">
+                                    <MudAlert Class="mb-3" Severity="Severity.Info" Icon="@Icons.Material.Filled.Info">
+                                        Customize the color palette for both light and dark modes. Use hex color codes (e.g., #FF0000 for red).<br/>
+                                        <strong>Changes will apply after the web console application has been restarted.</strong>
+                                    </MudAlert>
+                                    
+                                    <MudTabs Elevation="0" Rounded="true" Class="mt-3">
+                                        
+                                        <!-- Light Mode -->
+                                        <MudTabPanel Text="Light Mode" Icon="@Icons.Material.Filled.LightMode">
+                                            <MudStack Spacing="4" Class="mt-3">
+                                                
+                                                <MudText Typo="Typo.h6">Primary Colors</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Main brand colors used for buttons, links, and primary UI elements. Contrast text colors ensure readability.</MudText>
+                                                <MudGrid>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.Primary;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.Primary" Label="Primary" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.Primary" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.PrimaryContrastText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.PrimaryContrastText" Label="Primary Contrast Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.PrimaryContrastText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.Secondary;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.Secondary" Label="Secondary" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.Secondary" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.SecondaryContrastText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.SecondaryContrastText" Label="Secondary Contrast Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.SecondaryContrastText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.Tertiary;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.Tertiary" Label="Tertiary" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.Tertiary" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.TertiaryContrastText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.TertiaryContrastText" Label="Tertiary Contrast Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.TertiaryContrastText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                </MudGrid>
+                                                
+                                                <MudDivider />
+                                                
+                                                <MudText Typo="Typo.h6">Background & Surface</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Background colors for the main page and surface colors for cards, dialogs, and elevated components.</MudText>
+                                                <MudGrid>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.Background;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.Background" Label="Background" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.Background" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.BackgroundGray;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.BackgroundGray" Label="Background Gray" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.BackgroundGray" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.Surface;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.Surface" Label="Surface" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.Surface" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                </MudGrid>
+                                                
+                                                <MudDivider />
+                                                
+                                                <MudText Typo="Typo.h6">AppBar & Drawer</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Colors for the top app bar and navigation drawer (sidebar). Controls the background, text, and icon colors.</MudText>
+                                                <MudGrid>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.AppbarBackground;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.AppbarBackground" Label="AppBar Background" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.AppbarBackground" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.AppbarText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.AppbarText" Label="AppBar Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.AppbarText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.DrawerBackground;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.DrawerBackground" Label="Drawer Background" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.DrawerBackground" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.DrawerText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.DrawerText" Label="Drawer Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.DrawerText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.DrawerIcon;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.DrawerIcon" Label="Drawer Icon" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.DrawerIcon" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                </MudGrid>
+                                                
+                                                <MudDivider />
+                                                
+                                                <MudText Typo="Typo.h6">Text Colors</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Text colors for different hierarchy levels. Primary for main content, secondary for less important text, disabled for inactive elements.</MudText>
+                                                <MudGrid>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.TextPrimary;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.TextPrimary" Label="Text Primary" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.TextPrimary" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.TextSecondary;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.TextSecondary" Label="Text Secondary" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.TextSecondary" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.TextDisabled;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.TextDisabled" Label="Text Disabled" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.TextDisabled" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                </MudGrid>
+                                                
+                                                <MudDivider />
+                                                
+                                                <MudText Typo="Typo.h6">Action Colors</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Colors for interactive elements like icons and buttons in their default and disabled states.</MudText>
+                                                <MudGrid>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.ActionDefault;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.ActionDefault" Label="Action Default" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.ActionDefault" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.ActionDisabled;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.ActionDisabled" Label="Action Disabled" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.ActionDisabled" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.ActionDisabledBackground;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.ActionDisabledBackground" Label="Action Disabled Background" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.ActionDisabledBackground" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                </MudGrid>
+                                                
+                                                <MudDivider />
+                                                
+                                                <MudText Typo="Typo.h6">Status Colors</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Semantic colors for alerts, notifications, and status indicators. Info (blue), Success (green), Warning (orange), Error (red), and Dark mode accent.</MudText>
+                                                <MudGrid>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.Info;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.Info" Label="Info" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.Info" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.InfoContrastText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.InfoContrastText" Label="Info Contrast Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.InfoContrastText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.Success;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.Success" Label="Success" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.Success" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.SuccessContrastText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.SuccessContrastText" Label="Success Contrast Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.SuccessContrastText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.Warning;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.Warning" Label="Warning" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.Warning" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.WarningContrastText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.WarningContrastText" Label="Warning Contrast Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.WarningContrastText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.Error;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.Error" Label="Error" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.Error" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.ErrorContrastText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.ErrorContrastText" Label="Error Contrast Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.ErrorContrastText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.Dark;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.Dark" Label="Dark" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.Dark" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.DarkContrastText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.DarkContrastText" Label="Dark Contrast Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.DarkContrastText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                </MudGrid>
+                                                
+                                                <MudDivider />
+                                                
+                                                <MudText Typo="Typo.h6">Lines & Dividers</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Border colors for input fields, dividers, and table elements. Controls the visual separation between UI components.</MudText>
+                                                <MudGrid>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.LinesDefault;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.LinesDefault" Label="Lines Default" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.LinesDefault" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.LinesInputs;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.LinesInputs" Label="Lines Inputs" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.LinesInputs" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.Divider;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.Divider" Label="Divider" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.Divider" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.DividerLight;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.DividerLight" Label="Divider Light" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.DividerLight" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.TableLines;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.TableLines" Label="Table Lines" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.TableLines" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.TableStriped;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.TableStriped" Label="Table Striped" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.TableStriped" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.TableHover;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.TableHover" Label="Table Hover" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.TableHover" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                </MudGrid>
+                                                
+                                                <MudDivider />
+                                                
+                                                <MudText Typo="Typo.h6">Gray Scale</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Grayscale palette from black to white with various gray shades. Used for neutral UI elements and subtle backgrounds.</MudText>
+                                                <MudGrid>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.Black;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.Black" Label="Black" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.Black" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.White;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.White" Label="White" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.White" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.GrayDefault;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.GrayDefault" Label="Gray Default" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.GrayDefault" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.GrayLight;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.GrayLight" Label="Gray Light" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.GrayLight" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.GrayLighter;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.GrayLighter" Label="Gray Lighter" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.GrayLighter" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.GrayDark;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.GrayDark" Label="Gray Dark" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.GrayDark" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.GrayDarker;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.GrayDarker" Label="Gray Darker" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.GrayDarker" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                </MudGrid>
+                                                
+                                                <MudDivider />
+                                                
+                                                <MudText Typo="Typo.h6">Overlay & Hover</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Overlay colors for modals and dialogs. Hover opacity controls the transparency of hover effects on interactive elements.</MudText>
+                                                <MudGrid>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.OverlayDark;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.OverlayDark" Label="Overlay Dark" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.OverlayDark" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteLight.OverlayLight;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteLight.OverlayLight" Label="Overlay Light" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteLight.OverlayLight" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudNumericField @bind-Value="themePaletteConfig.PaletteLight.HoverOpacity" Label="Hover Opacity" Variant="Variant.Outlined" Min="0" Max="1" Step="0.01" />
+                                                    </MudItem>
+                                                </MudGrid>
+                                            </MudStack>
+                                        </MudTabPanel>
+                                        
+                                        <!-- Dark Mode -->
+                                        <MudTabPanel Text="Dark Mode" Icon="@Icons.Material.Filled.DarkMode">
+                                            <MudStack Spacing="4" Class="mt-3">
+                                                
+                                                <MudText Typo="Typo.h6">Primary Colors</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Main brand colors used for buttons, links, and primary UI elements. Contrast text colors ensure readability.</MudText>
+                                                <MudGrid>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.Primary;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.Primary" Label="Primary" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.Primary" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.PrimaryContrastText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.PrimaryContrastText" Label="Primary Contrast Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.PrimaryContrastText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.Secondary;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.Secondary" Label="Secondary" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.Secondary" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.SecondaryContrastText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.SecondaryContrastText" Label="Secondary Contrast Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.SecondaryContrastText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.Tertiary;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.Tertiary" Label="Tertiary" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.Tertiary" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.TertiaryContrastText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.TertiaryContrastText" Label="Tertiary Contrast Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.TertiaryContrastText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                </MudGrid>
+                                                
+                                                <MudDivider />
+                                                
+                                                <MudText Typo="Typo.h6">Background & Surface</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Background colors for the main page and surface colors for cards, dialogs, and elevated components.</MudText>
+                                                <MudGrid>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.Background;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.Background" Label="Background" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.Background" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.BackgroundGray;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.BackgroundGray" Label="Background Gray" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.BackgroundGray" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.Surface;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.Surface" Label="Surface" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.Surface" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                </MudGrid>
+                                                
+                                                <MudDivider />
+                                                
+                                                <MudText Typo="Typo.h6">AppBar & Drawer</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Colors for the top app bar and navigation drawer (sidebar). Controls the background, text, and icon colors.</MudText>
+                                                <MudGrid>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.AppbarBackground;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.AppbarBackground" Label="AppBar Background" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.AppbarBackground" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.AppbarText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.AppbarText" Label="AppBar Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.AppbarText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.DrawerBackground;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.DrawerBackground" Label="Drawer Background" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.DrawerBackground" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.DrawerText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.DrawerText" Label="Drawer Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.DrawerText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.DrawerIcon;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.DrawerIcon" Label="Drawer Icon" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.DrawerIcon" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                </MudGrid>
+                                                
+                                                <MudDivider />
+                                                
+                                                <MudText Typo="Typo.h6">Text Colors</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Text colors for different hierarchy levels. Primary for main content, secondary for less important text, disabled for inactive elements.</MudText>
+                                                <MudGrid>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.TextPrimary;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.TextPrimary" Label="Text Primary" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.TextPrimary" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.TextSecondary;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.TextSecondary" Label="Text Secondary" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.TextSecondary" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.TextDisabled;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.TextDisabled" Label="Text Disabled" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.TextDisabled" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                </MudGrid>
+                                                
+                                                <MudDivider />
+                                                
+                                                <MudText Typo="Typo.h6">Action Colors</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Colors for interactive elements like icons and buttons in their default and disabled states.</MudText>
+                                                <MudGrid>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.ActionDefault;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.ActionDefault" Label="Action Default" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.ActionDefault" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.ActionDisabled;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.ActionDisabled" Label="Action Disabled" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.ActionDisabled" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.ActionDisabledBackground;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.ActionDisabledBackground" Label="Action Disabled Background" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.ActionDisabledBackground" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                </MudGrid>
+                                                
+                                                <MudDivider />
+                                                
+                                                <MudText Typo="Typo.h6">Status Colors</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Semantic colors for alerts, notifications, and status indicators. Info (blue), Success (green), Warning (orange), Error (red), and Dark mode accent.</MudText>
+                                                <MudGrid>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.Info;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.Info" Label="Info" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.Info" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.InfoContrastText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.InfoContrastText" Label="Info Contrast Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.InfoContrastText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.Success;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.Success" Label="Success" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.Success" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.SuccessContrastText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.SuccessContrastText" Label="Success Contrast Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.SuccessContrastText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.Warning;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.Warning" Label="Warning" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.Warning" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.WarningContrastText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.WarningContrastText" Label="Warning Contrast Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.WarningContrastText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.Error;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.Error" Label="Error" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.Error" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.ErrorContrastText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.ErrorContrastText" Label="Error Contrast Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.ErrorContrastText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.Dark;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.Dark" Label="Dark" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.Dark" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.DarkContrastText;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.DarkContrastText" Label="Dark Contrast Text" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.DarkContrastText" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                </MudGrid>
+                                                
+                                                <MudDivider />
+                                                
+                                                <MudText Typo="Typo.h6">Lines & Dividers</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Border colors for input fields, dividers, and table elements. Controls the visual separation between UI components.</MudText>
+                                                <MudGrid>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.LinesDefault;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.LinesDefault" Label="Lines Default" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.LinesDefault" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.LinesInputs;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.LinesInputs" Label="Lines Inputs" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.LinesInputs" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.Divider;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.Divider" Label="Divider" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.Divider" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.DividerLight;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.DividerLight" Label="Divider Light" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.DividerLight" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.TableLines;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.TableLines" Label="Table Lines" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.TableLines" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.TableStriped;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.TableStriped" Label="Table Striped" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.TableStriped" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.TableHover;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.TableHover" Label="Table Hover" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.TableHover" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                </MudGrid>
+                                                
+                                                <MudDivider />
+                                                
+                                                <MudText Typo="Typo.h6">Gray Scale</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Grayscale palette from black to white with various gray shades. Used for neutral UI elements and subtle backgrounds.</MudText>
+                                                <MudGrid>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.Black;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.Black" Label="Black" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.Black" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.White;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.White" Label="White" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.White" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.GrayDefault;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.GrayDefault" Label="Gray Default" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.GrayDefault" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.GrayLight;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.GrayLight" Label="Gray Light" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.GrayLight" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.GrayLighter;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.GrayLighter" Label="Gray Lighter" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.GrayLighter" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.GrayDark;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.GrayDark" Label="Gray Dark" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.GrayDark" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.GrayDarker;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.GrayDarker" Label="Gray Darker" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.GrayDarker" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                </MudGrid>
+                                                
+                                                <MudDivider />
+                                                
+                                                <MudText Typo="Typo.h6">Overlay & Hover</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: var(--mud-palette-text-secondary);">Overlay colors for modals and dialogs. Hover opacity controls the transparency of hover effects on interactive elements.</MudText>
+                                                <MudGrid>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.OverlayDark;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.OverlayDark" Label="Overlay Dark" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.OverlayDark" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudStack Spacing="2">
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @themePaletteConfig.PaletteDark.OverlayLight;"></div>
+                                                                <MudTextField @bind-Value="themePaletteConfig.PaletteDark.OverlayLight" Label="Overlay Light" Variant="Variant.Outlined" Style="flex: 1;" />
+                                                            </div>
+                                                            <MudColorPicker @bind-Text="themePaletteConfig.PaletteDark.OverlayLight" ColorPickerView="ColorPickerView.Spectrum" Style="width: 100%;" />
+                                                        </MudStack>
+                                                    </MudItem>
+                                                    <MudItem xs="12" sm="6" md="4">
+                                                        <MudNumericField @bind-Value="themePaletteConfig.PaletteDark.HoverOpacity" Label="Hover Opacity" Variant="Variant.Outlined" Min="0" Max="1" Step="0.01" />
+                                                    </MudItem>
+                                                </MudGrid>
+                                            </MudStack>
+                                        </MudTabPanel>
+                                        
+                                    </MudTabs>
+                                    
+                                    @if (!string.IsNullOrEmpty(themePaletteValidationError))
+                                    {
+                                        <MudAlert Class="mt-3" Severity="Severity.Error" Icon="@Icons.Material.Filled.Error">
+                                            @themePaletteValidationError
+                                        </MudAlert>
+                                    }
+                                    
+                                    <MudStack Row="true" Class="mt-4">
+                                        <MudButton Size="Size.Small" 
+                                                   Variant="Variant.Filled" 
+                                                   Color="Color.Success" 
+                                                   StartIcon="@Icons.Material.Filled.Save" 
+                                                   OnClick="@SaveThemePalette">
+                                            Save & Restart
+                                        </MudButton>
+                                        
+                                        <MudButton Size="Size.Small" 
+                                                   Variant="Variant.Filled" 
+                                                   Color="Color.Warning" 
+                                                   StartIcon="@Icons.Material.Filled.RestartAlt" 
+                                                   OnClick="@ResetThemePaletteToDefault">
+                                            Reset to Default
+                                        </MudButton>
+                                    </MudStack>
+                                </MudPaper>
+                            </MudTabPanel>
+                            
+                        </MudTabs>
+                    </MudTabPanel>
 
             </MudTabs>
         }
@@ -758,6 +2095,12 @@
 
         await Get_Cleanup_Settings();
 
+        await Get_Sso_Settings();
+        
+        await Get_Ip_Whitelist();
+        
+        await Get_Whitelabeling_Settings();
+
         loading_overlay = false;
 
         StateHasChanged();
@@ -802,6 +2145,82 @@
     private bool remoteScreenSessionRecordingForced = false;
     private bool remoteScreenSessionRecordingAutoClean = false;
     private int remoteScreenSessionRecordingForcedDays = 0;
+
+    // SSO Configuration
+    // Azure AD
+    private bool azureAdEnabled = false;
+    private string azureAdInstance = string.Empty;
+    private string azureAdDomain = string.Empty;
+    private string azureAdTenantId = string.Empty;
+    private string azureAdClientId = string.Empty;
+    private string azureAdClientSecret = string.Empty;
+    private string azureAdCallbackPath = "/signin-oidc";
+    private string azureAdSignedOutCallbackPath = "/signout-callback-oidc";
+    private string azureAdResponseType = "code";
+    private bool azureAdSaveTokens = false;
+    
+    // Keycloak
+    private bool keycloakEnabled = false;
+    private string keycloakAuthority = string.Empty;
+    private string keycloakRealm = string.Empty;
+    private string keycloakClientId = string.Empty;
+    private string keycloakClientSecret = string.Empty;
+    private string keycloakCallbackPath = "/signin-keycloak";
+    private string keycloakSignedOutCallbackPath = "/signout-callback-keycloak";
+    private string keycloakResponseType = "code";
+    private bool keycloakSaveTokens = false;
+    private bool keycloakGetClaimsFromUserInfoEndpoint = true;
+    private bool keycloakRequireHttpsMetadata = true;
+    
+    // Google Identity
+    private bool googleEnabled = false;
+    private string googleClientId = string.Empty;
+    private string googleClientSecret = string.Empty;
+    private string googleCallbackPath = "/signin-google";
+    private string googleSignedOutCallbackPath = "/signout-callback-google";
+    private string googleHostedDomain = string.Empty;
+    private bool googleSaveTokens = false;
+    
+    // Okta
+    private bool oktaEnabled = false;
+    private string oktaDomain = string.Empty;
+    private string oktaClientId = string.Empty;
+    private string oktaClientSecret = string.Empty;
+    private string oktaCallbackPath = "/signin-okta";
+    private string oktaSignedOutCallbackPath = "/signout-callback-okta";
+    private string oktaAuthorizationServerId = "default";
+    private bool oktaSaveTokens = false;
+    private bool oktaGetClaimsFromUserInfoEndpoint = true;
+    
+    // Auth0
+    private bool auth0Enabled = false;
+    private string auth0Domain = string.Empty;
+    private string auth0ClientId = string.Empty;
+    private string auth0ClientSecret = string.Empty;
+    private string auth0CallbackPath = "/signin-auth0";
+    private string auth0SignedOutCallbackPath = "/signout-callback-auth0";
+    private string auth0Audience = string.Empty;
+    private bool auth0SaveTokens = false;
+
+    // IP Whitelist
+    private string ipWhitelistWebConsoleInput = string.Empty;
+    private string ipWhitelistWebConsoleValidationError = string.Empty;
+    private string ipWhitelistBackendInput = string.Empty;
+    private string ipWhitelistBackendValidationError = string.Empty;
+    
+    // Whitelabeling
+    private string webConsoleTitleInput = string.Empty;
+    private string webConsoleTitleValidationError = string.Empty;
+    
+    private string webConsoleLogoBase64 = string.Empty;
+    private string webConsoleLogoPreviewBase64 = string.Empty;
+    private string webConsoleLogoValidationError = string.Empty;
+    private string selectedLogoFileName = string.Empty;
+    private IBrowserFile? selectedLogoFile = null;
+    
+    // Theme Palette
+    private Classes.Theme.ThemePaletteConfig themePaletteConfig = new();
+    private string themePaletteValidationError = string.Empty;
 
     public class MySQL_Active_Queries
     {
@@ -980,13 +2399,13 @@
     }
 
     // Save api key for members portal
-    //OSSCH_START 0f3701e8-0c4d-4874-8f3d-d65396e15048 //OSSCH_END
+    //OSSCH_START 702acc1d-b6b5-480e-a4c8-360d76e691d5 //OSSCH_END
 
     // Update members portal license information
-    //OSSCH_START df01305a-ada4-46cb-8a8b-680505d9a394 //OSSCH_END
+    //OSSCH_START 72db0b45-e3c1-4bf2-bbc3-50b392e9cfa1 //OSSCH_END
 
     // Get members portal license status
-    //OSSCH_START 647c41b8-1b12-48a6-890d-2394a6c9614b //OSSCH_END
+    //OSSCH_START 7e2bfc03-152f-41c5-8e63-06480c57d411 //OSSCH_END
 
     // Get agent updates settings
     private async Task Get_Agent_Updates()
@@ -1479,4 +2898,217 @@ OPTIMIZE TABLE tenants;";
             await conn.CloseAsync();
         }
     }
+
+    // SSO Settings
+    //OSSCH_START ed49caa0-4c45-4fbe-85de-d8f953f84df5 //OSSCH_END
+    
+    // IP Whitelist Settings
+    private async Task Get_Ip_Whitelist()
+    {
+        try
+        {
+            // Load Web Console IP Whitelist
+            string ipWhitelistWebConsoleJson = await Classes.MySQL.Handler.Quick_Reader("SELECT * FROM settings", "ip_whitelist_web_console");
+            
+            if (!string.IsNullOrEmpty(ipWhitelistWebConsoleJson))
+            {
+                var ipList = JsonSerializer.Deserialize<List<string>>(ipWhitelistWebConsoleJson);
+                if (ipList != null && ipList.Count > 0)
+                {
+                    ipWhitelistWebConsoleInput = string.Join(", ", ipList);
+                }
+            }
+            
+            // Load Backend IP Whitelist
+            string ipWhitelistBackendJson = await Classes.MySQL.Handler.Quick_Reader("SELECT * FROM settings", "ip_whitelist_backend");
+            
+            if (!string.IsNullOrEmpty(ipWhitelistBackendJson))
+            {
+                var ipList = JsonSerializer.Deserialize<List<string>>(ipWhitelistBackendJson);
+                if (ipList != null && ipList.Count > 0)
+                {
+                    ipWhitelistBackendInput = string.Join(", ", ipList);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("Settings -> Get_Ip_Whitelist", "Error", ex.ToString());
+        }
+    }
+
+    private bool ValidateIpAddresses(string input, out List<string> validIps, ref string validationError)
+    {
+        validIps = new List<string>();
+        validationError = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return true; // Empty is valid (no whitelist)
+        }
+
+        var ips = input.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                       .Select(ip => ip.Trim())
+                       .Where(ip => !string.IsNullOrWhiteSpace(ip))
+                       .ToList();
+
+        foreach (var ip in ips)
+        {
+            if (System.Net.IPAddress.TryParse(ip, out _))
+            {
+                validIps.Add(ip);
+            }
+            else
+            {
+                validationError = $"Invalid IP address: {ip}";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private async Task SaveIpWhitelistWebConsole()
+    {
+        // Validate IP addresses first
+        if (!ValidateIpAddresses(ipWhitelistWebConsoleInput, out List<string> validIps, ref ipWhitelistWebConsoleValidationError))
+        {
+            Snackbar.Configuration.ShowCloseIcon = true;
+            Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+            Snackbar.Add(ipWhitelistWebConsoleValidationError, Severity.Error);
+            StateHasChanged();
+            return;
+        }
+
+        // Show confirmation dialog with warning about automatic restart
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            FullWidth = true,
+            MaxWidth = MaxWidth.Medium,
+            BackgroundClass = "dialog-blurring",
+        };
+
+        bool? dialog_result = await DialogService.ShowMessageBox(
+            "Warning",
+            "The web console will automatically restart after saving the IP whitelist configuration. All active user sessions will be terminated. Do you want to continue?",
+            yesText: Localizer["confirm"],
+            cancelText: Localizer["cancel"],
+            options: options);
+
+        bool state = Convert.ToBoolean(dialog_result == null ? "false" : "true");
+
+        if (!state)
+            return;
+
+        try
+        {
+            Snackbar.Configuration.ShowCloseIcon = true;
+            Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+
+            loading_overlay = true;
+            StateHasChanged();
+
+            // Serialize to JSON
+            string ipWhitelistJson = string.Empty;
+            if (validIps.Count > 0)
+            {
+                ipWhitelistJson = JsonSerializer.Serialize(validIps);
+            }
+
+            // Save to database
+            MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
+            string query = "UPDATE settings SET ip_whitelist_web_console = @ip_whitelist_web_console;";
+
+            await conn.OpenAsync();
+            MySqlCommand cmd = new MySqlCommand(query, conn);
+            
+            if (string.IsNullOrEmpty(ipWhitelistJson))
+                cmd.Parameters.AddWithValue("@ip_whitelist_web_console", DBNull.Value);
+            else
+                cmd.Parameters.AddWithValue("@ip_whitelist_web_console", ipWhitelistJson);
+
+            Logging.Handler.Debug("Settings -> SaveIpWhitelistWebConsole", "MySQL_Prepared_Query", query);
+
+            await cmd.ExecuteNonQueryAsync();
+            await conn.CloseAsync();
+
+            Snackbar.Add("Web Console IP Whitelist saved successfully! Application is restarting...", Severity.Success);
+            
+            // Wait briefly so the user can see the success message
+            await Task.Delay(2000);
+            
+            // Restart the application
+            System.Environment.Exit(0);
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("Settings -> SaveIpWhitelistWebConsole", "Error", ex.ToString());
+            Snackbar.Add("Error saving Web Console IP Whitelist: " + ex.Message, Severity.Error);
+            loading_overlay = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveIpWhitelistBackend()
+    {
+        // Validate IP addresses first
+        if (!ValidateIpAddresses(ipWhitelistBackendInput, out List<string> validIps, ref ipWhitelistBackendValidationError))
+        {
+            Snackbar.Configuration.ShowCloseIcon = true;
+            Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+            Snackbar.Add(ipWhitelistBackendValidationError, Severity.Error);
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            Snackbar.Configuration.ShowCloseIcon = true;
+            Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+
+            loading_overlay = true;
+            StateHasChanged();
+
+            // Serialize to JSON
+            string ipWhitelistJson = string.Empty;
+            if (validIps.Count > 0)
+            {
+                ipWhitelistJson = JsonSerializer.Serialize(validIps);
+            }
+
+            // Save to database
+            MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
+            string query = "UPDATE settings SET ip_whitelist_backend = @ip_whitelist_backend;";
+
+            await conn.OpenAsync();
+            MySqlCommand cmd = new MySqlCommand(query, conn);
+            
+            if (string.IsNullOrEmpty(ipWhitelistJson))
+                cmd.Parameters.AddWithValue("@ip_whitelist_backend", DBNull.Value);
+            else
+                cmd.Parameters.AddWithValue("@ip_whitelist_backend", ipWhitelistJson);
+
+            Logging.Handler.Debug("Settings -> SaveIpWhitelistBackend", "MySQL_Prepared_Query", query);
+
+            await cmd.ExecuteNonQueryAsync();
+            await conn.CloseAsync();
+
+            Snackbar.Add("Backend IP Whitelist saved successfully!", Severity.Success);
+            
+            loading_overlay = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("Settings -> SaveIpWhitelistBackend", "Error", ex.ToString());
+            Snackbar.Add("Error saving Backend IP Whitelist: " + ex.Message, Severity.Error);
+            loading_overlay = false;
+            StateHasChanged();
+        }
+    }
+    
+    // Whitelabeling Settings
+    //OSSCH_START e8aae139-892b-45b2-bb92-f1343e686822 //OSSCH_END
 }
+

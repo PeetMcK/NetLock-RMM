@@ -45,7 +45,10 @@ var cert_password = builder.Configuration.GetValue<string>("Kestrel:Endpoint:Htt
 var loggingEnabled = builder.Configuration.GetValue<bool>("Logging:Custom:Enabled", true);
 var publicOverrideUrlRaw = builder.Configuration.GetValue<string>("Webinterface:publicOverrideUrl", string.Empty);
 var publicOverrideUrl = publicOverrideUrlRaw.TrimEnd('/');
-var allowedIps = builder.Configuration.GetSection("Kestrel:IpWhitelist").Get<List<string>>() ?? new List<string>();
+
+// IP Whitelist will be loaded from database after MySQL connection is established
+List<string> allowedIps = new List<string>();
+
 var knownProxies = builder.Configuration.GetSection("Kestrel:KnownProxies").Get<List<string>>() ?? new List<string>();
 
 Web_Console.loggingEnabled = loggingEnabled;
@@ -80,16 +83,10 @@ else
 if (!String.IsNullOrEmpty(publicOverrideUrl))
     Web_Console.publicOverrideUrl = publicOverrideUrl;
 
-// Title
-Web_Console.title = builder.Configuration.GetValue<string>("Webinterface:Title", "NetLock RMM");
-
-if (Web_Console.title == "Your company name")
-    Web_Console.title = "NetLock RMM"; // Default title if not set
-
 var language = builder.Configuration["Webinterface:Language"];
 
 // Check members portal parts
-//OSSCH_START 388cb034-ca3a-4342-ab14-20dcebf55134 //OSSCH_END
+//OSSCH_START 1ca4b0c5-72a9-485b-b39b-c835409b0e12 //OSSCH_END
 Console.WriteLine("---------Loader_End----------");
 
 // Output OS
@@ -115,7 +112,7 @@ Console.WriteLine($"Https Port: {https_port}");
 Console.WriteLine($"Https (force): {https_force}");
 Console.WriteLine($"Hsts: {hsts}");
 Console.WriteLine($"Hsts Max Age: {hsts_max_age}");
-Console.WriteLine($"Allowed IPs: {string.Join(", ", allowedIps)}");
+Console.WriteLine($"Allowed IPs: (loaded from database)");
 Console.WriteLine($"Known Proxies: {string.Join(", ", knownProxies)}");
 
 Console.WriteLine($"Custom Certificate Path: {cert_path}");
@@ -300,6 +297,43 @@ else
             // Update license info
             await NetLock_RMM_Web_Console.Classes.Members_Portal.Handler.Request_License_Info_Json(Members_Portal.ApiKey);
         }
+        
+        // Load Web Console Title from database
+        try
+        {
+            //OSSCH_START e91cc31a-4d2d-411e-9eec-93f7ec76331f //OSSCH_END
+        
+        // Load IP Whitelist from database
+        try
+        {
+            string ipWhitelistJson = await NetLock_RMM_Web_Console.Classes.MySQL.Handler.Quick_Reader("SELECT * FROM settings", "ip_whitelist_web_console");
+            
+            if (!string.IsNullOrEmpty(ipWhitelistJson))
+            {
+                var ipList = System.Text.Json.JsonSerializer.Deserialize<List<string>>(ipWhitelistJson);
+                if (ipList != null && ipList.Count > 0)
+                {
+                    allowedIps = ipList;
+                    Console.WriteLine($"IP Whitelist loaded from database: {string.Join(", ", allowedIps)}");
+                }
+                else
+                {
+                    Console.WriteLine("IP Whitelist is empty in database. All IPs will be allowed.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("No IP Whitelist configured in database. All IPs will be allowed.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"Warning: Could not load IP Whitelist from database: {ex.Message}");
+            Console.WriteLine("All IPs will be allowed.");
+            Console.ResetColor();
+            Logging.Handler.Error("Program.cs", "Load IP Whitelist", ex.ToString());
+        }
     }
 }
 
@@ -313,9 +347,22 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
 // SSO Configuration
 Console.WriteLine(Environment.NewLine);
+//OSSCH_START
 Console.WriteLine("[SSO Configuration]");
+Console.WriteLine("Loading SSO configuration from database...");
 
-var ssoConfig = builder.Configuration.GetSection("Authentication").Get<NetLock_RMM_Web_Console.Classes.Authentication.SsoConfig>() ?? new NetLock_RMM_Web_Console.Classes.Authentication.SsoConfig();
+// Load SSO configuration from database instead of appsettings.json
+var ssoConfig = await NetLock_RMM_Web_Console.Classes.MySQL.Handler.Get_Sso_Config();
+
+if (ssoConfig == null)
+{
+    Console.WriteLine("No SSO configuration found in database. SSO is disabled.");
+    ssoConfig = new NetLock_RMM_Web_Console.Classes.Authentication.SsoConfig { Enabled = false };
+}
+else
+{
+    Console.WriteLine("SSO configuration loaded from database successfully.");
+}
 
 if (ssoConfig.Enabled)
 {
@@ -354,8 +401,48 @@ if (ssoConfig.Enabled)
     
     if (Sso.IsAzureAdEnabled || Sso.IsKeycloakEnabled || Sso.isGoogleIdentityEnabled || Sso.IsOktaEnabled || Sso.IsAuth0Enabled)
     {
-        Console.WriteLine("SSO is enabled. Registering SSO authentication providers...");
-        AuthProviderRegistrar.RegisterSsoProviders(builder.Services, builder.Configuration);
+        try
+        {
+            Console.WriteLine("SSO is enabled. Registering SSO authentication providers...");
+            AuthProviderRegistrar.RegisterSsoProviders(builder.Services, ssoConfig);
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("========================================");
+            Console.WriteLine("ERROR: Failed to register SSO providers!");
+            Console.WriteLine("========================================");
+            Console.WriteLine($"Error: {ex.Message}");
+            Console.WriteLine(Environment.NewLine);
+            Console.WriteLine("SSO configuration appears to be invalid or incomplete.");
+            Console.WriteLine("Common issues:");
+            Console.WriteLine("  - Missing required fields (ClientId, ClientSecret, Domain, etc.)");
+            Console.WriteLine("  - Invalid URLs or endpoints");
+            Console.WriteLine("  - Incorrect certificate configuration");
+            Console.WriteLine(Environment.NewLine);
+            Console.WriteLine("The application will continue running with SSO DISABLED.");
+            Console.WriteLine("Please check your SSO configuration in the database and restart the application.");
+            Console.WriteLine("========================================");
+            Console.ResetColor();
+            
+            // Log the error
+            Logging.Handler.Error("SSO Configuration", "Provider Registration Failed", ex.ToString());
+            
+            // Set error flag and message
+            Sso.ConfigurationError = true;
+            Sso.ConfigurationErrorMessage = ex.Message;
+            
+            // Disable SSO flags
+            Sso.IsEnabled = false;
+            Sso.IsAzureAdEnabled = false;
+            Sso.IsKeycloakEnabled = false;
+            Sso.isGoogleIdentityEnabled = false;
+            Sso.IsOktaEnabled = false;
+            Sso.IsAuth0Enabled = false;
+            
+            // Fall back to default authentication
+            builder.Services.AddAuthenticationCore();
+        }
     }
     else
     {
@@ -369,6 +456,7 @@ else
     builder.Services.AddAuthenticationCore();
 }
 Console.WriteLine(Environment.NewLine);
+//OSSCH_END
 
 // Blazor and core services
 builder.Services.AddBlazoredLocalStorage();
@@ -489,7 +577,7 @@ else
         {
             Logging.Handler.Error("Middleware", "IP Whitelisting", $"IP {remoteIp} is not whitelisted.");
             context.Response.StatusCode = 403;
-            await context.Response.WriteAsync("Your IP is unknown.");
+            await context.Response.WriteAsync("Your IP is unknown. Your ip: " + remoteIp);
             return;
         }
 
@@ -528,7 +616,7 @@ app.UseStaticFiles();
 app.UseAntiforgery();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
-//OSSCH_START d1011e03-a056-446b-a27b-2e399bf57906 //OSSCH_END
+//OSSCH_START a19bdd8b-292f-4925-b8d4-c0486c33b7a8 //OSSCH_END
 
 Console.WriteLine("---------Loader_End----------");
 
@@ -538,410 +626,7 @@ Console.WriteLine("Server started.");
 // SSO Challenge Endpoints
 if (Sso.IsEnabled)
 {
-    Console.WriteLine("SSO endpoints registered:");
-    
-    // Azure AD / Microsoft Entra ID Endpoints
-    if (Sso.IsAzureAdEnabled)
-    {
-        // Azure AD Challenge
-        app.MapGet("/challenge/azuread", async context =>
-        {
-            await context.ChallengeAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme, 
-                new Microsoft.AspNetCore.Authentication.AuthenticationProperties
-                {
-                    RedirectUri = "/sso-callback"
-                });
-        });
-        
-        // Azure AD Signout Callback - Handles the return from Azure AD after logout (POST)
-        app.MapPost("/signout-callback-oidc", async context =>
-        {
-            Console.WriteLine("SSO: Signout callback received from Azure AD (POST)");
-            Logging.Handler.Debug("SSO", "Signout Callback", "Returned from Azure AD logout (POST)");
-            
-            try
-            {
-                // Sign out from ALL authentication schemes to ensure complete logout
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme);
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme);
-                
-                Console.WriteLine("SSO: All local authentication schemes cleared");
-                Logging.Handler.Debug("SSO", "Signout Callback", "Local sessions cleared");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"SSO: Error clearing local sessions: {ex.Message}");
-                Logging.Handler.Error("SSO", "Signout Callback Error", ex.ToString());
-            }
-            
-            Console.WriteLine("SSO: Redirecting to login with logout flag and forcing reload");
-            // Add cache control headers to force browser to reload and not use cached version
-            context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
-            context.Response.Headers["Pragma"] = "no-cache";
-            context.Response.Headers["Expires"] = "0";
-            context.Response.Redirect("/?logout=true");
-        });
-        
-        // Azure AD Signout Callback - Also handle GET requests (some IdPs use GET instead of POST)
-        app.MapGet("/signout-callback-oidc", async context =>
-        {
-            Console.WriteLine("SSO: Signout callback received from Azure AD (GET)");
-            Logging.Handler.Debug("SSO", "Signout Callback", "Returned from Azure AD logout (GET)");
-            
-            try
-            {
-                // Sign out from ALL authentication schemes to ensure complete logout
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme);
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme);
-                
-                Console.WriteLine("SSO: All local authentication schemes cleared");
-                Logging.Handler.Debug("SSO", "Signout Callback", "Local sessions cleared");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"SSO: Error clearing local sessions: {ex.Message}");
-                Logging.Handler.Error("SSO", "Signout Callback Error", ex.ToString());
-            }
-            
-            Console.WriteLine("SSO: Redirecting to login with logout flag and forcing reload");
-            // Add cache control headers to force browser to reload and not use cached version
-            context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
-            context.Response.Headers["Pragma"] = "no-cache";
-            context.Response.Headers["Expires"] = "0";
-            context.Response.Redirect("/?logout=true");
-        });
-        
-        Console.WriteLine("  - /challenge/azuread (Azure AD / Microsoft Entra ID login)");
-        Console.WriteLine("  - /signout-callback-oidc (Azure AD logout callback)");
-    }
-    
-    // Keycloak Endpoints
-    if (Sso.IsKeycloakEnabled)
-    {
-        // Keycloak Challenge
-        app.MapGet("/challenge/keycloak", async context =>
-        {
-            await context.ChallengeAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme, 
-                new Microsoft.AspNetCore.Authentication.AuthenticationProperties
-                {
-                    RedirectUri = "/sso-callback"
-                });
-        });
-        
-        // Keycloak Signout Callback (POST)
-        app.MapPost("/signout-callback-keycloak", async context =>
-        {
-            Console.WriteLine("SSO: Keycloak signout callback received (POST)");
-            Logging.Handler.Debug("SSO", "Keycloak Signout Callback", "Returned from Keycloak logout (POST)");
-            
-            try
-            {
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme);
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme);
-                
-                Console.WriteLine("SSO: Keycloak - All local authentication schemes cleared");
-                Logging.Handler.Debug("SSO", "Keycloak Signout Callback", "Local sessions cleared");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"SSO: Keycloak - Error clearing local sessions: {ex.Message}");
-                Logging.Handler.Error("SSO", "Keycloak Signout Callback Error", ex.ToString());
-            }
-            
-            context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
-            context.Response.Headers["Pragma"] = "no-cache";
-            context.Response.Headers["Expires"] = "0";
-            context.Response.Redirect("/?logout=true");
-        });
-        
-        // Keycloak Signout Callback (GET)
-        app.MapGet("/signout-callback-keycloak", async context =>
-        {
-            Console.WriteLine("SSO: Keycloak signout callback received (GET)");
-            Logging.Handler.Debug("SSO", "Keycloak Signout Callback", "Returned from Keycloak logout (GET)");
-            
-            try
-            {
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme);
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme);
-                
-                Console.WriteLine("SSO: Keycloak - All local authentication schemes cleared");
-                Logging.Handler.Debug("SSO", "Keycloak Signout Callback", "Local sessions cleared");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"SSO: Keycloak - Error clearing local sessions: {ex.Message}");
-                Logging.Handler.Error("SSO", "Keycloak Signout Callback Error", ex.ToString());
-            }
-            
-            context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
-            context.Response.Headers["Pragma"] = "no-cache";
-            context.Response.Headers["Expires"] = "0";
-            context.Response.Redirect("/?logout=true");
-        });
-        
-        Console.WriteLine("  - /challenge/keycloak (Keycloak login)");
-        Console.WriteLine("  - /signout-callback-keycloak (Keycloak logout callback)");
-    }
-    
-    // Google Workspace / Google Identity Endpoints
-    if (Sso.isGoogleIdentityEnabled)
-    {
-        // Google Challenge
-        app.MapGet("/challenge/google", async context =>
-        {
-            await context.ChallengeAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme, 
-                new Microsoft.AspNetCore.Authentication.AuthenticationProperties
-                {
-                    RedirectUri = "/sso-callback"
-                });
-        });
-        
-        // Google Signout Callback (POST)
-        app.MapPost("/signout-callback-google", async context =>
-        {
-            Console.WriteLine("SSO: Google signout callback received (POST)");
-            Logging.Handler.Debug("SSO", "Google Signout Callback", "Returned from Google logout (POST)");
-            
-            try
-            {
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme);
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme);
-                
-                Console.WriteLine("SSO: Google - All local authentication schemes cleared");
-                Logging.Handler.Debug("SSO", "Google Signout Callback", "Local sessions cleared");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"SSO: Google - Error clearing local sessions: {ex.Message}");
-                Logging.Handler.Error("SSO", "Google Signout Callback Error", ex.ToString());
-            }
-            
-            context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
-            context.Response.Headers["Pragma"] = "no-cache";
-            context.Response.Headers["Expires"] = "0";
-            context.Response.Redirect("/?logout=true");
-        });
-        
-        // Google Signout Callback (GET)
-        app.MapGet("/signout-callback-google", async context =>
-        {
-            Console.WriteLine("SSO: Google signout callback received (GET)");
-            Logging.Handler.Debug("SSO", "Google Signout Callback", "Returned from Google logout (GET)");
-            
-            try
-            {
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme);
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme);
-                
-                Console.WriteLine("SSO: Google - All local authentication schemes cleared");
-                Logging.Handler.Debug("SSO", "Google Signout Callback", "Local sessions cleared");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"SSO: Google - Error clearing local sessions: {ex.Message}");
-                Logging.Handler.Error("SSO", "Google Signout Callback Error", ex.ToString());
-            }
-            
-            context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
-            context.Response.Headers["Pragma"] = "no-cache";
-            context.Response.Headers["Expires"] = "0";
-            context.Response.Redirect("/?logout=true");
-        });
-        
-        Console.WriteLine("  - /challenge/google (Google Workspace / Google Identity login)");
-        Console.WriteLine("  - /signout-callback-google (Google logout callback)");
-    }
-    
-    // Okta Endpoints
-    if (Sso.IsOktaEnabled)
-    {
-        // Okta Challenge
-        app.MapGet("/challenge/okta", async context =>
-        {
-            await context.ChallengeAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme, 
-                new Microsoft.AspNetCore.Authentication.AuthenticationProperties
-                {
-                    RedirectUri = "/sso-callback"
-                });
-        });
-        
-        // Okta Signout Callback (POST)
-        app.MapPost("/signout-callback-okta", async context =>
-        {
-            Console.WriteLine("SSO: Okta signout callback received (POST)");
-            Logging.Handler.Debug("SSO", "Okta Signout Callback", "Returned from Okta logout (POST)");
-            
-            try
-            {
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme);
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme);
-                
-                Console.WriteLine("SSO: Okta - All local authentication schemes cleared");
-                Logging.Handler.Debug("SSO", "Okta Signout Callback", "Local sessions cleared");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"SSO: Okta - Error clearing local sessions: {ex.Message}");
-                Logging.Handler.Error("SSO", "Okta Signout Callback Error", ex.ToString());
-            }
-            
-            context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
-            context.Response.Headers["Pragma"] = "no-cache";
-            context.Response.Headers["Expires"] = "0";
-            context.Response.Redirect("/?logout=true");
-        });
-        
-        // Okta Signout Callback (GET)
-        app.MapGet("/signout-callback-okta", async context =>
-        {
-            Console.WriteLine("SSO: Okta signout callback received (GET)");
-            Logging.Handler.Debug("SSO", "Okta Signout Callback", "Returned from Okta logout (GET)");
-            
-            try
-            {
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme);
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme);
-                
-                Console.WriteLine("SSO: Okta - All local authentication schemes cleared");
-                Logging.Handler.Debug("SSO", "Okta Signout Callback", "Local sessions cleared");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"SSO: Okta - Error clearing local sessions: {ex.Message}");
-                Logging.Handler.Error("SSO", "Okta Signout Callback Error", ex.ToString());
-            }
-            
-            context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
-            context.Response.Headers["Pragma"] = "no-cache";
-            context.Response.Headers["Expires"] = "0";
-            context.Response.Redirect("/?logout=true");
-        });
-        
-        Console.WriteLine("  - /challenge/okta (Okta login)");
-        Console.WriteLine("  - /signout-callback-okta (Okta logout callback)");
-    }
-    
-    // Auth0 Endpoints
-    if (Sso.IsAuth0Enabled)
-    {
-        // Auth0 Challenge
-        app.MapGet("/challenge/auth0", async context =>
-        {
-            await context.ChallengeAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme, 
-                new Microsoft.AspNetCore.Authentication.AuthenticationProperties
-                {
-                    RedirectUri = "/sso-callback"
-                });
-        });
-        
-        // Auth0 Signout Callback (POST)
-        app.MapPost("/signout-callback-auth0", async context =>
-        {
-            Console.WriteLine("SSO: Auth0 signout callback received (POST)");
-            Logging.Handler.Debug("SSO", "Auth0 Signout Callback", "Returned from Auth0 logout (POST)");
-            
-            try
-            {
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme);
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme);
-                
-                Console.WriteLine("SSO: Auth0 - All local authentication schemes cleared");
-                Logging.Handler.Debug("SSO", "Auth0 Signout Callback", "Local sessions cleared");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"SSO: Auth0 - Error clearing local sessions: {ex.Message}");
-                Logging.Handler.Error("SSO", "Auth0 Signout Callback Error", ex.ToString());
-            }
-            
-            context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
-            context.Response.Headers["Pragma"] = "no-cache";
-            context.Response.Headers["Expires"] = "0";
-            context.Response.Redirect("/?logout=true");
-        });
-        
-        // Auth0 Signout Callback (GET)
-        app.MapGet("/signout-callback-auth0", async context =>
-        {
-            Console.WriteLine("SSO: Auth0 signout callback received (GET)");
-            Logging.Handler.Debug("SSO", "Auth0 Signout Callback", "Returned from Auth0 logout (GET)");
-            
-            try
-            {
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme);
-                await context.SignOutAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme);
-                
-                Console.WriteLine("SSO: Auth0 - All local authentication schemes cleared");
-                Logging.Handler.Debug("SSO", "Auth0 Signout Callback", "Local sessions cleared");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"SSO: Auth0 - Error clearing local sessions: {ex.Message}");
-                Logging.Handler.Error("SSO", "Auth0 Signout Callback Error", ex.ToString());
-            }
-            
-            context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
-            context.Response.Headers["Pragma"] = "no-cache";
-            context.Response.Headers["Expires"] = "0";
-            context.Response.Redirect("/?logout=true");
-        });
-        
-        Console.WriteLine("  - /challenge/auth0 (Auth0 login)");
-        Console.WriteLine("  - /signout-callback-auth0 (Auth0 logout callback)");
-    }
-    
-    // Common SSO Signout Handler - Used by all providers
-    if (Sso.IsAzureAdEnabled || Sso.IsKeycloakEnabled || Sso.isGoogleIdentityEnabled || Sso.IsOktaEnabled || Sso.IsAuth0Enabled)
-    {
-        app.MapGet("/sso-signout", async context =>
-        {
-            Console.WriteLine("SSO: Signout handler called");
-            Logging.Handler.Debug("SSO", "Signout", "Initiating SSO logout process");
-            
-            try
-            {
-                // Check if user is authenticated
-                if (context.User?.Identity?.IsAuthenticated == true)
-                {
-                    Console.WriteLine($"SSO: Signing out user: {context.User.Identity.Name}");
-                    Logging.Handler.Debug("SSO", "Signout User", context.User.Identity.Name ?? "unknown");
-                    
-                    // IMPORTANT: Sign out from Cookie scheme FIRST to clear local session immediately
-                    // This prevents automatic re-login when user returns
-                    await context.SignOutAsync(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme);
-                    Console.WriteLine("SSO: Local cookie session cleared");
-                    Logging.Handler.Debug("SSO", "Signout", "Local cookie session cleared");
-                    
-                    // Then sign out from OIDC scheme to logout from the identity provider
-                    // This will redirect to the IdP logout page and then back to our app
-                    await context.SignOutAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme,
-                        new Microsoft.AspNetCore.Authentication.AuthenticationProperties
-                        {
-                            RedirectUri = "/?logout=true"
-                        });
-                    
-                    Console.WriteLine("SSO: OIDC signout initiated, redirecting to identity provider");
-                    Logging.Handler.Debug("SSO", "Signout", "OIDC signout flow started");
-                }
-                else
-                {
-                    Console.WriteLine("SSO: No authenticated user found, redirecting to login");
-                    Logging.Handler.Debug("SSO", "Signout", "No authenticated user, redirecting");
-                    context.Response.Redirect("/?logout=true");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"SSO: Error during signout: {ex.Message}");
-                Logging.Handler.Error("SSO", "Signout Error", ex.ToString());
-                context.Response.Redirect("/?logout=true");
-            }
-        });
-        
-        Console.WriteLine("  - /sso-signout (Initiate SSO logout)");
-    }
-}
+    //OSSCH_START 68a2071d-b2f8-47f5-810c-a54e2c34ff86 //OSSCH_END
 
 // Test endpoint
 app.MapGet("/test", async context =>
@@ -953,7 +638,7 @@ app.MapGet("/test", async context =>
 // Members Portal Api Cloud Version Endpoints
 if (Members_Portal.IsApiEnabled && Members_Portal.IsCloudEnabled)
 {
-    //OSSCH_START 1b9b00a9-f775-4a66-8ed2-7e12c2fe1411 //OSSCH_END
+    //OSSCH_START 124aa87e-83e1-484c-a8b6-30d309e16450 //OSSCH_END
 }
 
 // Start server

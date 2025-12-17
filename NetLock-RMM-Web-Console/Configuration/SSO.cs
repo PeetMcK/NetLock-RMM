@@ -1,13 +1,1 @@
-namespace NetLock_RMM_Web_Console.Configuration
-{
-    public class Sso
-    {
-        public static bool IsEnabled = false;
-        public static bool IsAzureAdEnabled = false;
-        public static bool IsKeycloakEnabled = false;
-        public static bool isGoogleIdentityEnabled = false;
-        public static bool IsOktaEnabled = false;
-        public static bool IsAuth0Enabled = false;
-    }
-}
-
+//OSSCH_START 1dd4baa7-80d2-4cdf-905f-39964b9c159b //OSSCH_END

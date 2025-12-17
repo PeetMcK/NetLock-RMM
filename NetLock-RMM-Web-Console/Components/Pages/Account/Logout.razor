@@ -79,17 +79,28 @@
             await customAuthStateProvider.UpdateAuthentificationState(null, true);
             Logging.Handler.Debug("/logout", "CustomAuthState", "Reset and cache cleared");
 
-            if (isSsoUser)
+            // Check if SSO is currently enabled
+            bool ssoEnabled = NetLock_RMM_Web_Console.Configuration.Sso.IsEnabled;
+            
+            if (isSsoUser && ssoEnabled)
             {
-                // For SSO users: redirect to SSO logout handler
+                // For SSO users when SSO is enabled: redirect to SSO logout handler
                 // This endpoint will properly initiate the OIDC signout flow
                 Logging.Handler.Debug("/logout", "Action", "Redirecting to SSO logout handler");
                 NavigationManager.NavigateTo("/sso-signout", true);
             }
             else
             {
-                // For normal users: redirect to login page with logout flag
-                Logging.Handler.Debug("/logout", "Action", "Redirecting to login page");
+                // For normal users or when SSO is disabled: redirect to login page with logout flag
+                if (isSsoUser && !ssoEnabled)
+                {
+                    Logging.Handler.Debug("/logout", "Action", "SSO user but SSO is disabled, redirecting to login page");
+                }
+                else
+                {
+                    Logging.Handler.Debug("/logout", "Action", "Redirecting to login page");
+                }
+                
                 NavigationManager.NavigateTo("/?logout=true", true);
             }
         }

@@ -1,4 +1,4 @@
-﻿@using MySqlConnector;
+@using MySqlConnector;
 @using System.Data.Common;
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @using Microsoft.AspNetCore.DataProtection
@@ -15,6 +15,19 @@
 
 <style>
     /* ===== MODERN DESIGN SYSTEM (NetLock Style) ===== */
+    
+    /* CSS Variables for Theme Colors */
+    :root {
+        --primary-color: @(GetColorString(_theme?.PaletteLight?.Primary));
+        --primary-dark: @(DarkenColor(GetColorString(_theme?.PaletteLight?.Primary)));
+        --primary-rgb: @(HexToRgb(GetColorString(_theme?.PaletteLight?.Primary)));
+    }
+
+    .mud-theme-dark {
+        --primary-color: @(GetColorString(_theme?.PaletteDark?.Primary));
+        --primary-dark: @(DarkenColor(GetColorString(_theme?.PaletteDark?.Primary)));
+        --primary-rgb: @(HexToRgb(GetColorString(_theme?.PaletteDark?.Primary)));
+    }
     
     /* Apply Poppins Font globally */
     * {
@@ -38,24 +51,24 @@
 
     /* Modern Button styling */
     .mud-button-filled.mud-button-filled-primary {
-        background: linear-gradient(135deg, #910012 0%, #b30015 100%) !important;
-        box-shadow: 0 4px 15px rgba(145, 0, 18, 0.3) !important;
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%) !important;
+        box-shadow: 0 4px 15px rgba(var(--primary-rgb), 0.3) !important;
         font-weight: 600 !important;
     }
 
     .mud-button-filled.mud-button-filled-primary:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(145, 0, 18, 0.4) !important;
+        box-shadow: 0 6px 20px rgba(var(--primary-rgb), 0.4) !important;
     }
 
     /* Modern Icon Button hover effect */
     .mud-icon-button:hover {
-        background-color: rgba(145, 0, 18, 0.1) !important;
+        background-color: rgba(var(--primary-rgb), 0.1) !important;
         transform: scale(1.1);
     }
 
     .mud-theme-dark .mud-icon-button:hover {
-        background-color: rgba(237, 13, 50, 0.15) !important;
+        background-color: rgba(var(--primary-rgb), 0.15) !important;
     }
 
     /* Modern Drawer styling */
@@ -69,36 +82,36 @@
 
     /* Modern Navigation Link styling - Only hover and active effects */
     .mud-nav-link:hover {
-        background-color: rgba(145, 0, 18, 0.08) !important;
+        background-color: rgba(var(--primary-rgb), 0.08) !important;
         transform: translateX(5px);
     }
 
     .mud-theme-dark .mud-nav-link:hover {
-        background-color: rgba(237, 13, 50, 0.15) !important;
+        background-color: rgba(var(--primary-rgb), 0.15) !important;
     }
 
     .mud-nav-link.active {
-        background: linear-gradient(135deg, rgba(145, 0, 18, 0.15) 0%, rgba(145, 0, 18, 0.08) 100%) !important;
-        border-left: 3px solid #910012 !important;
+        background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.15) 0%, rgba(var(--primary-rgb), 0.08) 100%) !important;
+        border-left: 3px solid var(--primary-color) !important;
         font-weight: 600 !important;
     }
 
     .mud-theme-dark .mud-nav-link.active {
-        background: linear-gradient(135deg, rgba(237, 13, 50, 0.2) 0%, rgba(237, 13, 50, 0.1) 100%) !important;
-        border-left: 3px solid #ED0D32 !important;
+        background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.2) 0%, rgba(var(--primary-rgb), 0.1) 100%) !important;
+        border-left: 3px solid var(--primary-color) !important;
     }
 
     /* Modern TextField styling */
     .mud-input-underline:before {
-        border-bottom-color: rgba(145, 0, 18, 0.2) !important;
+        border-bottom-color: rgba(var(--primary-rgb), 0.2) !important;
     }
 
     .mud-input-underline:hover:before {
-        border-bottom-color: rgba(145, 0, 18, 0.5) !important;
+        border-bottom-color: rgba(var(--primary-rgb), 0.5) !important;
     }
 
     .mud-input-underline:after {
-        border-bottom-color: #910012 !important;
+        border-bottom-color: var(--primary-color) !important;
     }
 
     /* Modern Paper styling */
@@ -116,20 +129,20 @@
     }
 
     .mud-table-head {
-        background: rgba(145, 0, 18, 0.05) !important;
+        background: rgba(var(--primary-rgb), 0.05) !important;
         font-weight: 600 !important;
     }
 
     .mud-theme-dark .mud-table-head {
-        background: rgba(237, 13, 50, 0.1) !important;
+        background: rgba(var(--primary-rgb), 0.1) !important;
     }
 
     .mud-table-row:hover {
-        background-color: rgba(145, 0, 18, 0.03) !important;
+        background-color: rgba(var(--primary-rgb), 0.03) !important;
     }
 
     .mud-theme-dark .mud-table-row:hover {
-        background-color: rgba(237, 13, 50, 0.08) !important;
+        background-color: rgba(var(--primary-rgb), 0.08) !important;
     }
 
     /* Modern Dialog styling */
@@ -154,11 +167,11 @@
 
     /* Modern Progress styling */
     .mud-progress-circular.mud-primary-text > svg > circle {
-        stroke: #910012 !important;
+        stroke: var(--primary-color) !important;
     }
 
     .mud-theme-dark .mud-progress-circular.mud-primary-text > svg > circle {
-        stroke: #ED0D32 !important;
+        stroke: var(--primary-color) !important;
     }
 
     /* Modern Scrollbar styling */
@@ -172,11 +185,11 @@
     }
 
     ::-webkit-scrollbar-thumb {
-        background: rgba(145, 0, 18, 0.3);
+        background: rgba(var(--primary-rgb), 0.3);
     }
 
     ::-webkit-scrollbar-thumb:hover {
-        background: rgba(145, 0, 18, 0.5);
+        background: rgba(var(--primary-rgb), 0.5);
     }
 
     .mud-theme-dark ::-webkit-scrollbar-track {
@@ -184,44 +197,63 @@
     }
 
     .mud-theme-dark ::-webkit-scrollbar-thumb {
-        background: rgba(237, 13, 50, 0.4);
+        background: rgba(var(--primary-rgb), 0.4);
     }
 
     .mud-theme-dark ::-webkit-scrollbar-thumb:hover {
-        background: rgba(237, 13, 50, 0.6);
+        background: rgba(var(--primary-rgb), 0.6);
     }
 
     /* Modern Badge styling */
     .mud-badge-primary {
-        background-color: #910012 !important;
+        background-color: var(--primary-color) !important;
     }
 
     .mud-theme-dark .mud-badge-primary {
-        background-color: #ED0D32 !important;
+        background-color: var(--primary-color) !important;
     }
 
 
     /* Modern Divider styling */
     .mud-divider {
-        border-color: rgba(145, 0, 18, 0.12) !important;
+        border-color: rgba(var(--primary-rgb), 0.12) !important;
     }
 
     .mud-theme-dark .mud-divider {
-        border-color: rgba(237, 13, 50, 0.2) !important;
+        border-color: rgba(var(--primary-rgb), 0.2) !important;
     }
 
-    /* Modern Switch styling */
+
+    /* Modern Switch styling - keep default animations */
     .mud-switch .mud-switch-thumb {
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+
+    .mud-switch .mud-switch-track {
+        transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
 
     /* Modern Checkbox styling */
     .mud-checkbox.mud-checked .mud-button-root {
-        color: #910012 !important;
+        color: var(--primary-color) !important;
     }
 
     .mud-theme-dark .mud-checkbox.mud-checked .mud-button-root {
-        color: #ED0D32 !important;
+        color: var(--primary-color) !important;
+    }
+
+    /* Modern Tooltip styling - Fix for Dark Mode */
+    .mud-tooltip {
+        background-color: rgba(97, 97, 97, 0.95) !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    }
+
+    .mud-theme-dark .mud-tooltip {
+        background-color: rgba(66, 66, 66, 0.95) !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
     }
 
     /* Seasonal Events - Only in AppBar */
@@ -567,7 +599,14 @@
                     </div>
                 }
                 
-                <MudImage Src="media/images/NetLock-RMM-Logo-Transparent.svg" Alt="Favicon" Width="35" Height="35" Class="mr-3" />
+                @if (!string.IsNullOrEmpty(NetLock_RMM_Web_Console.Configuration.Web_Console.logoBase64))
+                {
+                    <MudImage Src="@($"data:image/png;base64,{NetLock_RMM_Web_Console.Configuration.Web_Console.logoBase64}")" Alt="Logo" Height="35" Class="mr-3" Style="max-width: 150px; object-fit: contain;" />
+                }
+                else
+                {
+                    <MudImage Src="media/images/NetLock-RMM-Logo-Transparent.svg" Alt="Favicon" Width="35" Height="35" Class="mr-3" />
+                }
                 <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
 
                 <!-- Only show the title on larger screens -->
@@ -647,21 +686,8 @@
         Autumn               // September 22 - December 9
     }
 
-    protected override void OnInitialized()
-    {
-        base.OnInitialized();
-
-        _theme = new()
-        {
-            PaletteLight = _lightPalette,
-            PaletteDark = _darkPalette,
-            LayoutProperties = new LayoutProperties()
-        };
-
-        // Detect current seasonal event
-        _currentSeasonalEvent = DetectSeasonalEvent();
-    }
-
+    //OSSCH_START b29d94f7-78e8-4b13-bb78-ede08d0cf92c //OSSCH_END
+    
     private SeasonalEvent DetectSeasonalEvent()
     {
         var now = DateTime.Now;
@@ -722,47 +748,145 @@
     }
 
     private readonly PaletteLight _lightPalette = new()
-        {
-            Primary = "#910012",
-            Black = "#110e2d",
-            AppbarText = "#424242",
-            AppbarBackground = "rgba(255,255,255,0.8)",
-            DrawerBackground = "#ffffff",
-            GrayLight = "#e8e8e8",
-            GrayLighter = "#f9f9f9",
-        };
+    {
+        // Primary Colors
+        Primary = "#910012",              // NetLock RMM Primary Red
+        PrimaryContrastText = "#FFFFFF",  // White text on primary
+        Secondary = "#424242",            // Dark gray for secondary elements
+        SecondaryContrastText = "#FFFFFF",// White text on secondary
+        Tertiary = "#910012",             // Same as primary for consistency
+        TertiaryContrastText = "#FFFFFF", // White text on tertiary
+        
+        // Background & Surface
+        Background = "#F5F5F5",           // Light gray background
+        BackgroundGray = "#FAFAFA",       // Slightly lighter gray
+        Surface = "#FFFFFF",              // White surface for cards
+        
+        // AppBar & Drawer
+        AppbarBackground = "rgba(255,255,255,0.8)", // Semi-transparent white
+        AppbarText = "#424242",           // Dark gray text
+        DrawerBackground = "#FFFFFF",     // White drawer
+        DrawerText = "#424242",           // Dark gray drawer text
+        DrawerIcon = "#424242",           // Dark gray drawer icons
+        
+        // Text Colors
+        TextPrimary = "rgba(0,0,0,0.87)", // Standard dark text
+        TextSecondary = "rgba(0,0,0,0.6)",// Secondary dark text
+        TextDisabled = "rgba(0,0,0,0.38)",// Disabled text
+        
+        // Action Colors
+        ActionDefault = "rgba(0,0,0,0.54)",     // Default action color
+        ActionDisabled = "rgba(0,0,0,0.26)",    // Disabled actions
+        ActionDisabledBackground = "rgba(0,0,0,0.12)", // Disabled background
+        
+        // Status Colors
+        Info = "#0C80DF",                 // Blue for information
+        InfoContrastText = "#FFFFFF",     // White text on info
+        Success = "#00A344",              // Green for success
+        SuccessContrastText = "#FFFFFF",  // White text on success
+        Warning = "#D68100",              // Orange for warnings
+        WarningContrastText = "#FFFFFF",  // White text on warnings
+        Error = "#DC3545",                // Red for errors
+        ErrorContrastText = "#FFFFFF",    // White text on errors
+        Dark = "#424242",                 // Dark color
+        DarkContrastText = "#FFFFFF",     // White text on dark
+        
+        // Lines & Dividers
+        LinesDefault = "rgba(0,0,0,0.12)",// Light gray lines
+        LinesInputs = "rgba(0,0,0,0.42)", // Darker lines for inputs
+        Divider = "rgba(0,0,0,0.12)",     // Divider color
+        DividerLight = "rgba(0,0,0,0.06)",// Light divider
+        TableLines = "rgba(0,0,0,0.12)",  // Table border lines
+        TableStriped = "rgba(0,0,0,0.02)",// Striped table rows
+        TableHover = "rgba(0,0,0,0.04)",  // Table row hover
+        
+        // Gray Scale
+        Black = "#000000",                // Pure black
+        White = "#FFFFFF",                // Pure white
+        GrayDefault = "#9E9E9E",          // Mid gray
+        GrayLight = "#E0E0E0",            // Light gray
+        GrayLighter = "#F5F5F5",          // Very light gray
+        GrayDark = "#616161",             // Dark gray
+        GrayDarker = "#424242",           // Darker gray
+        
+        // Overlay
+        OverlayDark = "rgba(33,33,33,0.4)",  // Dark overlay for modals
+        OverlayLight = "rgba(255,255,255,0.4)", // Light overlay
+        
+        // Hover Effects
+        HoverOpacity = 0.06,              // Hover opacity
+    };
 
     private readonly PaletteDark _darkPalette = new()
-        {
-            Primary = "#ED0D32",              // Helles Rot als Primärfarbe
-            Surface = "#2B2B2B",              // Hintergrundfarbe für Oberflächen wie Karten (dunkles Grau)
-            Background = "#141414",           // Hintergrundfarbe für die gesamte Seite (sehr dunkles Grau)
-            BackgroundGray = "#2B2B2B",       // Leicht heller Hintergrund für Sekundärflächen (dunkles Grau)
-            AppbarText = "#FFFFFF",           // Textfarbe in der AppBar (weiß)
-            AppbarBackground = "#3a3a3a",     // Hintergrundfarbe für AppBar (dunkles Grau)
-            DrawerBackground = "#3a3a3a",     // Hintergrundfarbe für das Drawer-Menü (dunkles Grau)
-            ActionDefault = "#FFFFFF",        // Standardfarbe für Aktionen wie Schaltflächen (weiß)
-            ActionDisabled = "#9999994d",     // Farbe für deaktivierte Aktionen (grau mit Transparenz)
-            ActionDisabledBackground = "#605f6d4d", // Hintergrundfarbe für deaktivierte Aktionen
-            TextPrimary = "#FFFFFF",          // Primäre Textfarbe für bessere Lesbarkeit (weiß)
-            TextSecondary = "#FFFFFF",        // Sekundäre Textfarbe für weniger wichtige Informationen (weiß)
-            TextDisabled = "#FFFFFF",         // Farbe für deaktivierten Text (weiß mit Transparenz)
-            DrawerIcon = "#FFFFFF",           // Farbe für Icons im Drawer-Menü (weiß)
-            DrawerText = "#FFFFFF",           // Farbe für Text im Drawer-Menü (weiß)
-            GrayLight = "#383838",            // Helle Grautöne für Sekundäre Flächen
-            GrayLighter = "#2B2B2B",          // Noch hellerer Grauton für Hintergründe
-            Info = "rgb(12,128,223)",         // Farbe für Informationsmeldungen (blau)
-            Success = "#00A344",              // Erfolgsfarbe (grün)
-            Warning = "#D68100",              // Warnfarbe (orange)
-            Error = "#ff3f5f",                // Fehlerfarbe (rot)
-            LinesDefault = "#2B2B2B",         // Farbe für Linien und Rahmen (dunkles Grau)
-            TableLines = "#2B2B2B",           // Farbe für Tabellenlinien (dunkles Grau)
-            Divider = "#2B2B2B",              // Farbe für Trenner (dunkles Grau)
-            OverlayLight = "#14141480",       // Transparente Überlagerung für modale Fenster oder Popups
-        };
-
-
-
+    {
+        // Primary Colors
+        Primary = "#ED0D32",              // NetLock RMM Bright Red
+        PrimaryContrastText = "#FFFFFF",  // White text on primary
+        Secondary = "#757575",            // Light gray for secondary
+        SecondaryContrastText = "#FFFFFF",// White text on secondary
+        Tertiary = "#ED0D32",             // Same as primary
+        TertiaryContrastText = "#FFFFFF", // White text on tertiary
+        
+        // Background & Surface
+        Background = "#141414",           // Very dark background
+        BackgroundGray = "#1E1E1E",       // Slightly lighter dark
+        Surface = "#2B2B2B",              // Dark surface for cards
+        
+        // AppBar & Drawer
+        AppbarBackground = "#3A3A3A",     // Dark gray appbar
+        AppbarText = "#FFFFFF",           // White text
+        DrawerBackground = "#3A3A3A",     // Dark gray drawer
+        DrawerText = "#FFFFFF",           // White drawer text
+        DrawerIcon = "#FFFFFF",           // White drawer icons
+        
+        // Text Colors
+        TextPrimary = "rgba(255,255,255,0.95)", // Bright white text
+        TextSecondary = "rgba(255,255,255,0.7)",// Dimmed white text
+        TextDisabled = "rgba(255,255,255,0.38)",// Disabled text
+        
+        // Action Colors
+        ActionDefault = "rgba(255,255,255,0.87)",   // Default action color
+        ActionDisabled = "rgba(255,255,255,0.26)",  // Disabled actions
+        ActionDisabledBackground = "rgba(255,255,255,0.12)", // Disabled background
+        
+        // Status Colors
+        Info = "#0C80DF",                 // Blue for information
+        InfoContrastText = "#FFFFFF",     // White text on info
+        Success = "#00A344",              // Green for success
+        SuccessContrastText = "#FFFFFF",  // White text on success
+        Warning = "#D68100",              // Orange for warnings
+        WarningContrastText = "#FFFFFF",  // White text on warnings
+        Error = "#FF3F5F",                // Red for errors
+        ErrorContrastText = "#FFFFFF",    // White text on errors
+        Dark = "#1A1A1A",                 // Darker color
+        DarkContrastText = "#FFFFFF",     // White text on dark
+        
+        // Lines & Dividers
+        LinesDefault = "rgba(255,255,255,0.12)", // Subtle white lines
+        LinesInputs = "rgba(255,255,255,0.3)",   // Brighter lines for inputs
+        Divider = "rgba(255,255,255,0.12)",      // Divider color
+        DividerLight = "rgba(255,255,255,0.06)", // Light divider
+        TableLines = "rgba(255,255,255,0.12)",   // Table border lines
+        TableStriped = "rgba(255,255,255,0.02)", // Striped table rows
+        TableHover = "rgba(255,255,255,0.04)",   // Table row hover
+        
+        // Gray Scale
+        Black = "#000000",                // Pure black
+        White = "#FFFFFF",                // Pure white
+        GrayDefault = "#757575",          // Mid gray
+        GrayLight = "#616161",            // Light gray (darker in dark mode)
+        GrayLighter = "#4A4A4A",          // Very light gray
+        GrayDark = "#E0E0E0",             // Dark gray (lighter in dark mode)
+        GrayDarker = "#F5F5F5",           // Darker gray
+        
+        // Overlay
+        OverlayDark = "rgba(33,33,33,0.5)",      // Dark overlay for modals
+        OverlayLight = "rgba(20,20,20,0.5)",     // Dark mode light overlay
+        
+        // Hover Effects
+        HoverOpacity = 0.08,              // Hover opacity (slightly higher for dark mode)
+    };
+    
     public string DarkLightModeButtonIcon => _isDarkMode switch
     {
         true => Icons.Material.Rounded.LightMode,
@@ -925,6 +1049,105 @@
         };
 
         DialogService.Show<Pages.Community.Events.Virus_Defense_Dialog>(String.Empty, parameters, options);
+    }
+    
+    // Helper method to get color string from MudColor or fallback
+    private string GetColorString(MudBlazor.Utilities.MudColor? color)
+    {
+        if (color == null || string.IsNullOrEmpty(color.Value))
+        {
+            // Return default based on current mode
+            return _isDarkMode ? "#ED0D32" : "#910012";
+        }
+        return color.Value;
+    }
+    
+    // Helper method to convert HEX to RGB for CSS variables
+    private string HexToRgb(string hex)
+    {
+        if (string.IsNullOrEmpty(hex))
+            return "145, 0, 18"; // Default fallback
+            
+        hex = hex.Replace("#", "");
+        
+        // Handle rgba() format
+        if (hex.StartsWith("rgba("))
+        {
+            var parts = hex.Replace("rgba(", "").Replace(")", "").Split(',');
+            if (parts.Length >= 3)
+                return $"{parts[0].Trim()}, {parts[1].Trim()}, {parts[2].Trim()}";
+        }
+        
+        // Handle rgb() format
+        if (hex.StartsWith("rgb("))
+        {
+            return hex.Replace("rgb(", "").Replace(")", "");
+        }
+        
+        try
+        {
+            if (hex.Length == 6)
+            {
+                int r = Convert.ToInt32(hex.Substring(0, 2), 16);
+                int g = Convert.ToInt32(hex.Substring(2, 2), 16);
+                int b = Convert.ToInt32(hex.Substring(4, 2), 16);
+                return $"{r}, {g}, {b}";
+            }
+            else if (hex.Length == 3)
+            {
+                int r = Convert.ToInt32(hex.Substring(0, 1) + hex.Substring(0, 1), 16);
+                int g = Convert.ToInt32(hex.Substring(1, 1) + hex.Substring(1, 1), 16);
+                int b = Convert.ToInt32(hex.Substring(2, 1) + hex.Substring(2, 1), 16);
+                return $"{r}, {g}, {b}";
+            }
+        }
+        catch
+        {
+            return "145, 0, 18"; // Fallback on error
+        }
+        
+        return "145, 0, 18"; // Default fallback
+    }
+    
+    // Helper method to darken a color for gradient effects
+    private string DarkenColor(string hex)
+    {
+        if (string.IsNullOrEmpty(hex))
+            return "#b30015"; // Default fallback
+            
+        // If already rgba/rgb, return darker version
+        if (hex.StartsWith("rgba(") || hex.StartsWith("rgb("))
+            return hex; // Can't easily darken rgba/rgb strings, return as-is
+            
+        hex = hex.Replace("#", "");
+        
+        try
+        {
+            if (hex.Length == 6)
+            {
+                int r = Convert.ToInt32(hex.Substring(0, 2), 16);
+                int g = Convert.ToInt32(hex.Substring(2, 2), 16);
+                int b = Convert.ToInt32(hex.Substring(4, 2), 16);
+                
+                // Darken by 20%
+                r = (int)(r * 1.2);
+                g = (int)(g * 1.2);
+                b = (int)(b * 1.2);
+                
+                // Clamp values
+                r = Math.Min(255, r);
+                g = Math.Min(255, g);
+                b = Math.Min(255, b);
+                
+                return $"#{r:X2}{g:X2}{b:X2}";
+            }
+        }
+        catch
+        {
+            return "#b30015"; // Fallback on error
+        }
+        
+        return "#b30015"; // Default fallback
     }
 }
 

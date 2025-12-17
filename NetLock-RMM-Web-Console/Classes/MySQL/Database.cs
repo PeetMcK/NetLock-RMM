@@ -616,7 +616,6 @@ namespace NetLock_RMM_Web_Console.Classes.MySQL
             scripts.Add(upgrade_script_2_5_2_2c_to_2_5_2_7);
             scripts.Add(upgrade_script_2_5_2_7_to_2_5_3_0);
             scripts.Add(upgrade_script_2_5_3_4_to_2_5_3_4b);
-
             // Disabled due to testing...
 
             /*if (db_version == "2.0.0.0")
@@ -790,9 +789,9 @@ namespace NetLock_RMM_Web_Console.Classes.MySQL
             }
         }
 
-        //OSSCH_START 4e902728-2b4f-4f77-bb7c-bfc63060a22c //OSSCH_END
+        //OSSCH_START dece9451-998f-46da-9337-e64a4452be0c //OSSCH_END
         
         // Reset database
-        //OSSCH_START 40e9e0cb-3c12-4a1b-b86b-33ad4c1016ee //OSSCH_END
+        //OSSCH_START 58f88dc9-b4c6-4a5d-b60e-f321d1a5d625 //OSSCH_END
     }
 }

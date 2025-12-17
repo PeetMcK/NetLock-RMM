@@ -1,4 +1,4 @@
-﻿using MySqlConnector;
+using MySqlConnector;
 using System.Data.Common;
 using System;
 using System.Data;
@@ -796,5 +796,8 @@ namespace NetLock_RMM_Web_Console.Classes.MySQL
                 await conn.CloseAsync();
             }
         }
+
+        // Get SSO Configuration from database
+        //OSSCH_START 935b759c-f1dc-4868-afd8-3b1d83543a45 //OSSCH_END
     }
 }
