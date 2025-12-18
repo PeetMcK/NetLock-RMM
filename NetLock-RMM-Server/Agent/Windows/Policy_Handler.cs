@@ -1,4 +1,4 @@
-﻿using MySqlConnector;
+﻿﻿using MySqlConnector;
 using System.Data.Common;
 using Microsoft.AspNetCore.Identity;
 using System;
@@ -173,7 +173,7 @@ namespace NetLock_RMM_Server.Agent.Windows
                 (int tenant_id, int location_id) = await Helper.Get_Tenant_Location_Id(device_identity.tenant_guid, device_identity.location_guid);
 
                 // Get device_id
-                int device_id = await Helper.Get_Device_Id(device_identity.device_name, tenant_id, location_id);
+                int device_id = await Helper.Get_Device_Id_By_Access_Key(device_identity.access_key);
 
                 // Get tenant_name & location_name
                 (string tenant_name, string location_name) = await Helper.Get_Tenant_Location_Name(tenant_id, location_id);
@@ -204,12 +204,10 @@ namespace NetLock_RMM_Server.Agent.Windows
                 // Get device group
                 try
                 {
-                    string query = "SELECT * FROM devices WHERE device_name = @device_name AND location_id = @location_id AND tenant_id = @tenant_id;";
+                    string query = "SELECT * FROM devices WHERE access_key = @access_key;";
 
                     MySqlCommand command = new MySqlCommand(query, conn);
-                    command.Parameters.AddWithValue("@tenant_id", tenant_id);
-                    command.Parameters.AddWithValue("@location_id", location_id);
-                    command.Parameters.AddWithValue("@device_name", device_name);
+                    command.Parameters.AddWithValue("@access_key", device_identity.access_key);
 
                     Logging.Handler.Debug("Agent.Windows.Policy_Handler.Get_Policy (group_name)", "MySQL_Prepared_Query", query);
 
@@ -538,12 +536,10 @@ namespace NetLock_RMM_Server.Agent.Windows
                 // Set synced = 1
                 try
                 {
-                    string execute_query = "UPDATE devices SET synced = 1 WHERE device_name = @device_name AND location_id = @location_id AND tenant_id = @tenant_id;";
+                    string execute_query = "UPDATE devices SET synced = 1 WHERE access_key = @access_key;";
 
                     MySqlCommand command = new MySqlCommand(execute_query, conn);
-                    command.Parameters.AddWithValue("@tenant_id", tenant_id);
-                    command.Parameters.AddWithValue("@location_id", location_id);
-                    command.Parameters.AddWithValue("@device_name", device_name);
+                    command.Parameters.AddWithValue("@access_key", device_identity.access_key);
 
                     command.ExecuteNonQuery();
                 }

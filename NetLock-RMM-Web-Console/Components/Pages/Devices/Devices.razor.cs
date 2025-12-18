@@ -203,6 +203,8 @@ namespace NetLock_RMM_Web_Console.Components.Pages.Devices
         private string location_guid = String.Empty;
         private string group_id = String.Empty;
 
+        private bool moveDevices = false;
+
         //Device information
         private bool deviceConnected = false;
         public string agent_version = String.Empty;
@@ -771,6 +773,26 @@ namespace NetLock_RMM_Web_Console.Components.Pages.Devices
         private MudDateRangePicker device_information_cpu_history_table_picker;
         private DateRange device_information_cpu_history_table_dateRange = new DateRange(DateTime.Now.Date.AddDays(-1), DateTime.Now.Date.AddDays(1));
 
+        private TimeSpan CpuHistoryTimeLabelSpacing
+        {
+            get
+            {
+                if (device_information_cpu_history_table_dateRange?.Start == null || device_information_cpu_history_table_dateRange?.End == null)
+                    return TimeSpan.FromMinutes(30);
+
+                var timeSpan = device_information_cpu_history_table_dateRange.End.Value - device_information_cpu_history_table_dateRange.Start.Value;
+                var totalHours = timeSpan.TotalHours;
+
+                // Dynamische Berechnung basierend auf Zeitspanne
+                if (totalHours <= 6) return TimeSpan.FromMinutes(15);      // <= 6 Stunden: alle 15 Minuten
+                if (totalHours <= 24) return TimeSpan.FromMinutes(30);     // <= 1 Tag: alle 30 Minuten
+                if (totalHours <= 72) return TimeSpan.FromHours(2);        // <= 3 Tage: alle 2 Stunden
+                if (totalHours <= 168) return TimeSpan.FromHours(6);       // <= 1 Woche: alle 6 Stunden
+                if (totalHours <= 720) return TimeSpan.FromHours(24);      // <= 1 Monat: alle 24 Stunden
+                return TimeSpan.FromDays(7);                                // > 1 Monat: alle 7 Tage
+            }
+        }
+
         private async Task Device_Information_CPU_History_Table_Submit_Picker()
         {
             await device_information_cpu_history_table_picker.CloseAsync();
@@ -1152,6 +1174,26 @@ namespace NetLock_RMM_Web_Console.Components.Pages.Devices
         private string ram_history_table_search_string = "";
         private MudDateRangePicker ram_history_table_picker;
         private DateRange ram_history_table_dateRange = new DateRange(DateTime.Now.Date.AddDays(-1), DateTime.Now.Date.AddDays(1));
+
+        private TimeSpan RamHistoryTimeLabelSpacing
+        {
+            get
+            {
+                if (ram_history_table_dateRange?.Start == null || ram_history_table_dateRange?.End == null)
+                    return TimeSpan.FromMinutes(30);
+
+                var timeSpan = ram_history_table_dateRange.End.Value - ram_history_table_dateRange.Start.Value;
+                var totalHours = timeSpan.TotalHours;
+
+                // Dynamische Berechnung basierend auf Zeitspanne
+                if (totalHours <= 6) return TimeSpan.FromMinutes(15);      // <= 6 Stunden: alle 15 Minuten
+                if (totalHours <= 24) return TimeSpan.FromMinutes(30);     // <= 1 Tag: alle 30 Minuten
+                if (totalHours <= 72) return TimeSpan.FromHours(2);        // <= 3 Tage: alle 2 Stunden
+                if (totalHours <= 168) return TimeSpan.FromHours(6);       // <= 1 Woche: alle 6 Stunden
+                if (totalHours <= 720) return TimeSpan.FromHours(24);      // <= 1 Monat: alle 24 Stunden
+                return TimeSpan.FromDays(7);                                // > 1 Monat: alle 7 Tage
+            }
+        }
 
         private async Task RAM_History_Table_Submit_Picker()
         {
@@ -3204,87 +3246,6 @@ WHERE device_id = @deviceId");
         private string group_name = null;
         private string group_name_displayed = String.Empty;
 
-        private bool move_devices_dialog_open = false;
-
-        private async Task Move_Devices_Dialog()
-        {
-            if (move_devices_dialog_open)
-                return;
-
-            await Get_Tenant_Location_Group_ID();
-
-            var options = new DialogOptions
-            {
-                CloseButton = true,
-                FullWidth = true,
-                MaxWidth = MaxWidth.Small,
-                BackgroundClass = "dialog-blurring",
-            };
-
-            DialogParameters parameters = new DialogParameters();
-            parameters.Add("tenant_id", tenant_id);
-            parameters.Add("location_id", location_id);
-            parameters.Add("group_id", group_id);
-
-            if (group_name == "all")
-                parameters.Add("grouped", false);
-            else
-                parameters.Add("grouped", true);
-
-            move_devices_dialog_open = true;
-
-            var result = await DialogService.Show<Dialogs.Move_Devices_Dialog>(string.Empty, parameters, options).Result;
-
-            move_devices_dialog_open = false;
-
-            if (result.Canceled)
-            {
-                await Get_Clients_OverviewAsync();
-                return;
-            }
-
-            Logging.Handler.Debug("/devices -> Move_Devices_Dialog", "Result", result.Data.ToString() ?? String.Empty);
-
-            if (String.IsNullOrEmpty(result.Data.ToString()) == false && result.Data.ToString() != "error")
-            {
-                await Get_Clients_OverviewAsync();
-            }
-        }
-
-        private bool move_device_dialog_open = false;
-
-        private async Task Move_Device_Dialog()
-        {
-            var options = new DialogOptions
-            {
-                CloseButton = true,
-                FullWidth = true,
-                MaxWidth = MaxWidth.Small,
-                BackgroundClass = "dialog-blurring",
-            };
-
-            DialogParameters parameters = new DialogParameters();
-            parameters.Add("tenant_id", notes_tenant_id);
-            parameters.Add("location_id", notes_location_id);
-            parameters.Add("device_id", notes_device_id);
-
-            move_device_dialog_open = false;
-
-            var result = await DialogService.Show<Dialogs.Move_Device_Dialog>(string.Empty, parameters, options).Result;
-
-            move_device_dialog_open = true;
-
-            if (result.Canceled)
-                return;
-
-            Logging.Handler.Debug("/devices -> Move_Device_Dialog", "Result", result.Data.ToString() ?? String.Empty);
-
-            if (String.IsNullOrEmpty(result.Data.ToString()) == false && result.Data.ToString() != "error")
-            {
-                await Get_Clients_OverviewAsync();
-            }
-        }
-
         // Get tenant & location & group id from database using guid
         private async Task Get_Tenant_Location_Group_ID()
         {
@@ -3366,6 +3327,7 @@ WHERE device_id = @deviceId");
         
         public class MySQL_Entity
         {
+            public bool isChecked { get; set; } = false;
             public string device_id { get; set; } = "Empty";
             public bool connected { get; set; } = false;
             public string access_key { get; set; } = "Empty";
@@ -5893,6 +5855,135 @@ WHERE device_id = @deviceId");
             remote_control_dialog_open = false;
         }
 
+        #endregion
+        
+        #region Move Devices
+
+        private bool allDevicesChecked = false;
+        private List<string> selectedDeviceIds = new List<string>();
+        
+        private async Task MoveDevicesSwitch()
+        {
+            if (moveDevices)
+            {
+                // Deactivate move mode and reset selections
+                moveDevices = false;
+                selectedDeviceIds.Clear();
+                allDevicesChecked = false;
+                
+                // Reset all checkboxes
+                foreach (var device in mysql_data)
+                {
+                    device.isChecked = false;
+                }
+            }
+            else
+            {
+                // Activate move mode
+                moveDevices = true;
+            }
+        }
+        
+        private async Task ToggleAllDevicesSelection()
+        {
+            if (allDevicesChecked)
+            {
+                // Check all devices
+                selectedDeviceIds = mysql_data.Select(d => d.device_id).ToList();
+                foreach (var device in mysql_data)
+                {
+                    device.isChecked = true;
+                }
+            }
+            else
+            {
+                // Uncheck all devices
+                selectedDeviceIds.Clear();
+                foreach (var device in mysql_data)
+                {
+                    device.isChecked = false;
+                }
+            }
+        }
+        
+        private void OnDeviceCheckboxChanged(MySQL_Entity device)
+        {
+            if (device.isChecked)
+            {
+                // Add to selection if not already present
+                if (!selectedDeviceIds.Contains(device.device_id))
+                {
+                    selectedDeviceIds.Add(device.device_id);
+                }
+            }
+            else
+            {
+                // Remove from selection
+                selectedDeviceIds.Remove(device.device_id);
+                allDevicesChecked = false; // Uncheck "select all" if any individual item is unchecked
+            }
+            
+            // Update "select all" checkbox state
+            if (selectedDeviceIds.Count == mysql_data.Count && mysql_data.Count > 0)
+            {
+                allDevicesChecked = true;
+            }
+        }
+        
+        private bool move_devices_dialog_open = false;
+
+        private async Task Move_Devices_Dialog()
+        {
+            if (move_devices_dialog_open)
+                return;
+
+            // Check if devices are selected
+            if (selectedDeviceIds == null || selectedDeviceIds.Count == 0)
+            {
+                Snackbar.Add(Localizer["no_devices_selected"], Severity.Warning);
+                return;
+            }
+
+            var options = new DialogOptions
+            {
+                CloseButton = true,
+                FullWidth = true,
+                MaxWidth = MaxWidth.Medium,
+                BackgroundClass = "dialog-blurring",
+            };
+
+            DialogParameters parameters = new DialogParameters();
+            parameters.Add("SelectedDeviceIds", selectedDeviceIds.ToList());
+
+            move_devices_dialog_open = true;
+
+            var result = await DialogService.Show<Dialogs.Move_Devices_Dialog>(string.Empty, parameters, options).Result;
+
+            move_devices_dialog_open = false;
+
+            if (result.Canceled)
+            {
+                return;
+            }
+
+            Logging.Handler.Debug("/devices -> Move_Devices_Dialog", "Result", result.Data?.ToString() ?? "null");
+
+            if (result.Data != null && (bool)result.Data == true)
+            {
+                // Reset move mode after successful move
+                moveDevices = false;
+                selectedDeviceIds.Clear();
+                allDevicesChecked = false;
+                
+                foreach (var device in mysql_data)
+                {
+                    device.isChecked = false;
+                }
+                
+                await Get_Clients_OverviewAsync();
+            }
+        }
+        
         #endregion
         
         #region Data_Export

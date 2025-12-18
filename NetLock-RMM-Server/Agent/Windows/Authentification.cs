@@ -69,13 +69,11 @@ namespace NetLock_RMM_Server.Agent.Windows
 
                 await conn.OpenAsync();
 
-                string reader_query = "SELECT * FROM `devices` WHERE device_name = @device_name AND location_id = @location_id AND tenant_id = @tenant_id;";
+                string reader_query = "SELECT * FROM `devices` WHERE access_key = @access_key;";
                 Logging.Handler.Debug("Modules.Authentification.Verify_Device", "MySQL_Query", reader_query);
 
                 MySqlCommand command = new MySqlCommand(reader_query, conn);
-                command.Parameters.AddWithValue("@tenant_id", tenant_id);
-                command.Parameters.AddWithValue("@location_id", location_id);
-                command.Parameters.AddWithValue("@device_name", device_identity.device_name);
+                command.Parameters.AddWithValue("@access_key", device_identity.access_key);
 
                 DbDataReader reader = await command.ExecuteReaderAsync();
 
@@ -139,12 +137,9 @@ namespace NetLock_RMM_Server.Agent.Windows
                     // Deauthorize the device if access key is not correct, but hwid is
                     if (deauthorize)
                     {
-                        string execute_query = "UPDATE `devices` SET access_key = @access_key, hwid = @hwid, authorized = 0, synced = 0 WHERE device_name = @device_name AND location_id = @location_id AND tenant_id = @tenant_id";
+                        string execute_query = "UPDATE `devices` SET hwid = @hwid, authorized = 0, synced = 0 WHERE access_key = @access_key";
 
                         MySqlCommand cmd = new MySqlCommand(execute_query, conn);
-                        cmd.Parameters.AddWithValue("@tenant_id", tenant_id);
-                        cmd.Parameters.AddWithValue("@location_id", location_id);
-                        cmd.Parameters.AddWithValue("@device_name", device_identity.device_name);
                         cmd.Parameters.AddWithValue("@access_key", device_identity.access_key);
                         cmd.Parameters.AddWithValue("@hwid", device_identity.hwid);
                         cmd.ExecuteNonQuery();
@@ -272,7 +267,6 @@ namespace NetLock_RMM_Server.Agent.Windows
                         "`tenant_id` = @tenant_id, " +
                         "`location_id` = @location_id, " +
                         "`device_name` = @device_name, " +
-                        "`access_key` = @access_key, " +
                         "`platform` = @platform, " +
                         "`authorized` = @authorized, " +
                         "`last_access` = @last_access, " +
@@ -295,7 +289,7 @@ namespace NetLock_RMM_Server.Agent.Windows
                         "`environment_variables` = @environment_variables, " +
                         "`synced` = @synced, " +
                         "`last_active_user` = @last_active_user " +
-                        "WHERE device_name = @device_name AND location_id = @location_id AND tenant_id = @tenant_id";
+                        "WHERE access_key = @access_key";
 
                     MySqlCommand cmd = new MySqlCommand(execute_query, conn);
 
@@ -331,12 +325,10 @@ namespace NetLock_RMM_Server.Agent.Windows
                 }
                 else if (authentification_result == "unauthorized") // if unauthorized, update last access
                 {
-                    string execute_query = "UPDATE `devices` SET last_access = @last_access WHERE device_name = @device_name AND location_id = @location_id AND tenant_id = @tenant_id";
+                    string execute_query = "UPDATE `devices` SET last_access = @last_access WHERE access_key = @access_key";
 
                     MySqlCommand cmd = new MySqlCommand(execute_query, conn);
-                    cmd.Parameters.AddWithValue("@tenant_id", tenant_id);
-                    cmd.Parameters.AddWithValue("@location_id", location_id);
-                    cmd.Parameters.AddWithValue("@device_name", device_identity.device_name);
+                    cmd.Parameters.AddWithValue("@access_key", device_identity.access_key);
                     cmd.Parameters.AddWithValue("@last_access", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
 
                     cmd.ExecuteNonQuery();
@@ -514,18 +506,13 @@ namespace NetLock_RMM_Server.Agent.Windows
                         // Verarbeiten Sie die Device-Identity
                         Logging.Handler.Debug("Agent.Windows.Authentification.InvokeAsync", "device_identity", $"Device name: {device_identity.device_name}");
 
-                        // Get the tenant id & location id with tenant_guid & location_guid
-                        (int tenant_id, int location_id) = await Helper.Get_Tenant_Location_Id(device_identity.tenant_guid, device_identity.location_guid);
-
                         await conn.OpenAsync();
 
-                        string reader_query = "SELECT * FROM `devices` WHERE device_name = @device_name AND location_id = @location_id AND tenant_id = @tenant_id;";
+                        string reader_query = "SELECT * FROM `devices` WHERE access_key = @access_key;";
                         Logging.Handler.Debug("Modules.Authentification.InvokeAsync", "MySQL_Query", reader_query);
 
                         MySqlCommand command = new MySqlCommand(reader_query, conn);
-                        command.Parameters.AddWithValue("@device_name", device_identity.device_name);
-                        command.Parameters.AddWithValue("@location_id", location_id);
-                        command.Parameters.AddWithValue("@tenant_id", tenant_id);
+                        command.Parameters.AddWithValue("@access_key", device_identity.access_key);
 
                         DbDataReader reader = await command.ExecuteReaderAsync();
 

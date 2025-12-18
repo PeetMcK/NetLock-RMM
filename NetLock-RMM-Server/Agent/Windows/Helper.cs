@@ -143,6 +143,42 @@ namespace NetLock_RMM_Server.Agent.Windows
             }
         }
 
+        // Get device id with access_key
+        public static async Task<int> Get_Device_Id_By_Access_Key(string access_key)
+        {
+            MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
+
+            try
+            {
+                await conn.OpenAsync();
+
+                // Abfrage für device_id
+                string deviceIdQuery = "SELECT id FROM devices WHERE access_key = @access_key;";
+                MySqlCommand deviceCmd = new MySqlCommand(deviceIdQuery, conn);
+                deviceCmd.Parameters.AddWithValue("@access_key", access_key);
+
+                int device_id = 0;
+                using (MySqlDataReader deviceReader = await deviceCmd.ExecuteReaderAsync())
+                {
+                    if (deviceReader.HasRows && await deviceReader.ReadAsync())
+                    {
+                        device_id = deviceReader.GetInt32("id");
+                    }
+                }
+
+                return device_id;
+            }
+            catch (Exception ex)
+            {
+                Logging.Handler.Error("NetLock_RMM_Server.Modules.Helper.Get_Device_Id_By_Access_Key", "General error", ex.ToString());
+                return 0;
+            }
+            finally
+            {
+                await conn.CloseAsync();
+            }
+        }
+
         // Get role_remote from appsettings.json file
         public static async Task<bool> Get_Role_Status(string role)
         {

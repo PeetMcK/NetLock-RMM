@@ -1,6 +1,7 @@
-﻿@using MySqlConnector;
+﻿﻿@using MySqlConnector;
 @using System.Data.Common;
 @using System.Security.Claims
+@using MySqlConnector
 
 @inject NavigationManager NavigationManager
 @inject ILocalStorageService localStorage
@@ -20,32 +21,92 @@
 
             <MudDialog>
                 <TitleContent>
-                <MudText Typo="Typo.h6">@Localizer["title"]</MudText>
-            </TitleContent>
+                    <MudText Typo="Typo.h6">
+                        @Localizer["title"]
+                    </MudText>
+                </TitleContent>
                 <DialogContent>
 
-                    <MudText Class="pa-0 ma-0">@Localizer["text"]</MudText>
+                    <MudText Class="mb-4" Typo="Typo.body2">@Localizer["text"]</MudText>
 
-                <MudSelect Class="mt-5" T="string" @bind-Value=target_device_name Label="@Localizer["device"]" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
-                        @foreach (var device in device_list)
+                    <MudText Class="mb-2" Typo="Typo.subtitle2">
+                        Selected devices: <strong>@selectedDeviceCount</strong>
+                    </MudText>
+
+                    <MudDivider Class="my-4" />
+
+                    <!-- Tenant Selection -->
+                    <MudSelect T="string" 
+                               @bind-Value="target_tenant_name" 
+                               Label="Tenant" 
+                               Variant="Variant.Outlined"
+                               AnchorOrigin="Origin.BottomCenter" 
+                               TransformOrigin="Origin.TopCenter"
+                               Required="true"
+                               Adornment="Adornment.Start"
+                               AdornmentIcon="@Icons.Material.Filled.Business">
+                        @foreach (var tenant in tenants_list)
                         {
-                            <MudSelectItem Value="@device" />
+                            <MudSelectItem Value="@tenant" />
                         }
                     </MudSelect>
 
-                <MudSelect T="string" @bind-Value=target_group_name Label="@Localizer["target_group"]" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
+                    <!-- Location Selection -->
+                    <MudSelect T="string" 
+                               @bind-Value="target_location_name" 
+                               Label="Location" 
+                               Variant="Variant.Outlined"
+                               AnchorOrigin="Origin.BottomCenter" 
+                               TransformOrigin="Origin.TopCenter"
+                               Required="true"
+                               Disabled="@(String.IsNullOrEmpty(target_tenant_name))"
+                               Adornment="Adornment.Start"
+                               AdornmentIcon="@Icons.Material.Filled.LocationOn"
+                               Class="mt-3">
+                        @foreach (var location in locations_list)
+                        {
+                            <MudSelectItem Value="@location" />
+                        }
+                    </MudSelect>
+
+                    <!-- Group Selection (Optional) -->
+                    <MudSelect T="string" 
+                               @bind-Value="target_group_name" 
+                               Label="Group (optional)" 
+                               Variant="Variant.Outlined"
+                               AnchorOrigin="Origin.BottomCenter" 
+                               TransformOrigin="Origin.TopCenter"
+                               Disabled="@(String.IsNullOrEmpty(target_location_name))"
+                               Clearable="true"
+                               Adornment="Adornment.Start"
+                               AdornmentIcon="@Icons.Material.Filled.Group"
+                               Class="mt-3">
+                        <MudSelectItem Value="@("")">-</MudSelectItem>
                         @foreach (var group in groups_list)
                         {
                             <MudSelectItem Value="@group" />
                         }
                     </MudSelect>
 
+                    @if (!String.IsNullOrEmpty(error_message))
+                    {
+                        <MudAlert Severity="Severity.Error" Class="mt-4">@error_message</MudAlert>
+                    }
+
                 </DialogContent>
 
                 <DialogActions>
-                <MudButton Size="Size.Small" OnClick="Cancel">@Localizer["cancel"]</MudButton>
-                <MudButton Size="Size.Small" OnClick="Move_Device" Variant="@Variant.Filled" Color="@Color.Success" Disabled="@(String.IsNullOrEmpty(target_group_name))">@Localizer["move"]</MudButton>
-            </DialogActions>
+                    <MudButton Size="Size.Small" OnClick="Cancel">
+                        @Localizer["cancel"]
+                    </MudButton>
+                    <MudButton Size="Size.Small" 
+                               OnClick="Move_Devices" 
+                               Variant="@Variant.Filled" 
+                               Color="@Color.Success" 
+                               Disabled="@(String.IsNullOrEmpty(target_tenant_name) || String.IsNullOrEmpty(target_location_name))">
+                        Confirm
+                    </MudButton>
+                </DialogActions>
             </MudDialog>
 
         </Authorized>
@@ -53,18 +114,20 @@
 
 @code {
 
-    private string target_device_name = null;
-    private string target_device_id = null;
-    private string target_group_name = null;
-    private string target_group_id = null;
-    private List<string> device_list = new List<string> { };
-    private List<string> groups_list = new List<string> { };
+    private string target_tenant_id;
+    private string target_location_id;
+    private string target_group_name;
+    private string target_group_id;
+    
+    private List<string> tenants_list = new List<string>();
+    private List<string> locations_list = new List<string>();
+    private List<string> groups_list = new List<string>();
+    
+    private int selectedDeviceCount = 0;
+    private string error_message;
 
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
-    [Parameter] public string tenant_id { get; set; }
-    [Parameter] public string location_id { get; set; }
-    [Parameter] public string group_id { get; set; }
-    [Parameter] public bool grouped { get; set; }
+    [Parameter] public List<string> SelectedDeviceIds { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -78,24 +141,58 @@
             return;
         }
 
-        Logging.Handler.Debug("Move_Devices_Dialog", "tenant_id", tenant_id);
-        Logging.Handler.Debug("Move_Devices_Dialog", "location_id", location_id);
-        Logging.Handler.Debug("Move_Devices_Dialog", "group_id", group_id);
-        Logging.Handler.Debug("Move_Devices_Dialog", "grouped", grouped.ToString());
+        selectedDeviceCount = SelectedDeviceIds?.Count ?? 0;
+        Logging.Handler.Debug("Move_Devices_Dialog", "selectedDeviceCount", selectedDeviceCount.ToString());
 
-        await Get_Devices();
-        await Get_Groups();
+        await Get_Tenants();
         StateHasChanged();
     }
 
-    private async Task Get_Devices()
+    // Watch for tenant selection change
+    private string _target_tenant_name;
+    private string target_tenant_name
     {
-        string query = String.Empty;
+        get => _target_tenant_name;
+        set
+        {
+            if (_target_tenant_name != value)
+            {
+                _target_tenant_name = value;
+                target_location_name = null;
+                target_group_name = null;
+                locations_list.Clear();
+                groups_list.Clear();
+                if (!String.IsNullOrEmpty(value))
+                {
+                    _ = Get_Locations();
+                }
+            }
+        }
+    }
 
-        if (grouped)
-            query = "SELECT * FROM devices WHERE authorized = '1' AND group_id = @group_id AND location_id = @location_id AND tenant_id = @tenant_id;";
-        else
-            query = "SELECT * FROM devices WHERE authorized = '1';";
+    // Watch for location selection change
+    private string _target_location_name;
+    private string target_location_name
+    {
+        get => _target_location_name;
+        set
+        {
+            if (_target_location_name != value)
+            {
+                _target_location_name = value;
+                target_group_name = null;
+                groups_list.Clear();
+                if (!String.IsNullOrEmpty(value))
+                {
+                    _ = Get_Groups();
+                }
+            }
+        }
+    }
+
+    private async Task Get_Tenants()
+    {
+        string query = "SELECT * FROM tenants ORDER BY name ASC;";
 
         MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
 
@@ -104,32 +201,39 @@
             await conn.OpenAsync();
 
             MySqlCommand command = new MySqlCommand(query, conn);
-            command.Parameters.AddWithValue("@tenant_id", tenant_id);
-            command.Parameters.AddWithValue("@location_id", location_id);
-            command.Parameters.AddWithValue("@group_id", group_id);
 
             using (DbDataReader reader = await command.ExecuteReaderAsync())
             {
                 if (reader.HasRows)
                 {
                     while (await reader.ReadAsync())
-                        device_list.Add(reader["device_name"].ToString() ?? "");
+                        tenants_list.Add(reader["name"].ToString() ?? "");
                 }
             }
         }
         catch (Exception ex)
         {
-            Logging.Handler.Error("class", "Get_Devices", ex.Message);
+            Logging.Handler.Error("Move_Devices_Dialog", "Get_Tenants", ex.Message);
         }
         finally
         {
             conn.Close();
         }
+
+        StateHasChanged();
     }
 
-    private async Task Get_Groups()
+    private async Task Get_Locations()
     {
-        string query = "SELECT * FROM `groups` WHERE location_id = @location_id AND tenant_id = @tenant_id;";
+        locations_list.Clear();
+        
+        // Get tenant_id first
+        target_tenant_id = await Get_Tenant_Id(target_tenant_name);
+        
+        if (String.IsNullOrEmpty(target_tenant_id))
+            return;
+
+        string query = "SELECT * FROM `locations` WHERE tenant_id = @tenant_id ORDER BY name ASC;";
 
         MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
 
@@ -138,8 +242,50 @@
             await conn.OpenAsync();
 
             MySqlCommand command = new MySqlCommand(query, conn);
-            command.Parameters.AddWithValue("@tenant_id", tenant_id);
-            command.Parameters.AddWithValue("@location_id", location_id);
+            command.Parameters.AddWithValue("@tenant_id", target_tenant_id);
+
+            using (DbDataReader reader = await command.ExecuteReaderAsync())
+            {
+                if (reader.HasRows)
+                {
+                    while (await reader.ReadAsync())
+                        locations_list.Add(reader["name"].ToString() ?? "");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("Move_Devices_Dialog", "Get_Locations", ex.Message);
+        }
+        finally
+        {
+            conn.Close();
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task Get_Groups()
+    {
+        groups_list.Clear();
+        
+        // Get location_id first
+        target_location_id = await Get_Location_Id(target_location_name, target_tenant_id);
+        
+        if (String.IsNullOrEmpty(target_location_id))
+            return;
+
+        string query = "SELECT * FROM `groups` WHERE location_id = @location_id AND tenant_id = @tenant_id ORDER BY name ASC;";
+
+        MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
+
+        try
+        {
+            await conn.OpenAsync();
+
+            MySqlCommand command = new MySqlCommand(query, conn);
+            command.Parameters.AddWithValue("@tenant_id", target_tenant_id);
+            command.Parameters.AddWithValue("@location_id", target_location_id);
 
             using (DbDataReader reader = await command.ExecuteReaderAsync())
             {
@@ -153,19 +299,20 @@
         }
         catch (Exception ex)
         {
-            Logging.Handler.Error("class", "Get_Groups", ex.Message);
+            Logging.Handler.Error("Move_Devices_Dialog", "Get_Groups", ex.Message);
         }
         finally
         {
             conn.Close();
         }
+
+        StateHasChanged();
     }
 
-    // Get group id from groups table and device_id from device table from database
-    private async Task Get_Group_Device_ID()
+    private async Task<string> Get_Tenant_Id(string tenantName)
     {
-        string groupQuery = "SELECT id FROM `groups` WHERE name = @group_name AND location_id = @location_id AND tenant_id = @tenant_id;";
-        string deviceQuery = "SELECT id FROM devices WHERE device_name = @device_name AND location_id = @location_id AND tenant_id = @tenant_id;";
+        string result = null;
+        string query = "SELECT id FROM tenants WHERE name = @tenant_name;";
 
         MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
 
@@ -173,101 +320,219 @@
         {
             await conn.OpenAsync();
 
-            MySqlCommand groupCommand = new MySqlCommand(groupQuery, conn);
-            groupCommand.Parameters.AddWithValue("@tenant_id", tenant_id);
-            groupCommand.Parameters.AddWithValue("@location_id", location_id);
-            groupCommand.Parameters.AddWithValue("@group_name", target_group_name);
+            MySqlCommand command = new MySqlCommand(query, conn);
+            command.Parameters.AddWithValue("@tenant_name", tenantName);
 
-            using (DbDataReader groupReader = await groupCommand.ExecuteReaderAsync())
+            using (DbDataReader reader = await command.ExecuteReaderAsync())
             {
-                if (groupReader.HasRows)
+                if (reader.HasRows && await reader.ReadAsync())
                 {
-                    while (await groupReader.ReadAsync())
-                        target_group_id = groupReader["id"].ToString() ?? "";
-                }
-            }
-
-            MySqlCommand deviceCommand = new MySqlCommand(deviceQuery, conn);
-            deviceCommand.Parameters.AddWithValue("@tenant_id", tenant_id);
-            deviceCommand.Parameters.AddWithValue("@location_id", location_id);
-            deviceCommand.Parameters.AddWithValue("@device_name", target_device_name);
-
-            using (DbDataReader deviceReader = await deviceCommand.ExecuteReaderAsync())
-            {
-                if (deviceReader.HasRows)
-                {
-                    while (await deviceReader.ReadAsync())
-                        target_device_id = deviceReader["id"].ToString() ?? "";
+                    result = reader["id"].ToString() ?? "";
                 }
             }
         }
         catch (Exception ex)
         {
-            Logging.Handler.Error("class", "Get_Group_Device_ID", ex.Message);
+            Logging.Handler.Error("Move_Devices_Dialog", "Get_Tenant_Id", ex.Message);
         }
         finally
         {
             conn.Close();
         }
+
+        return result;
     }
 
-    private async Task Move_Device()
+    private async Task<string> Get_Location_Id(string locationName, string tenantId)
     {
-        await Get_Group_Device_ID();
+        string result = null;
+        string query = "SELECT id FROM `locations` WHERE name = @location_name AND tenant_id = @tenant_id;";
 
+        MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
+
+        try
+        {
+            await conn.OpenAsync();
+
+            MySqlCommand command = new MySqlCommand(query, conn);
+            command.Parameters.AddWithValue("@location_name", locationName);
+            command.Parameters.AddWithValue("@tenant_id", tenantId);
+
+            using (DbDataReader reader = await command.ExecuteReaderAsync())
+            {
+                if (reader.HasRows && await reader.ReadAsync())
+                {
+                    result = reader["id"].ToString() ?? "";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("Move_Devices_Dialog", "Get_Location_Id", ex.Message);
+        }
+        finally
+        {
+            conn.Close();
+        }
+
+        return result;
+    }
+
+    private async Task<string> Get_Group_Id(string groupName, string locationId, string tenantId)
+    {
+        string result = null;
+        string query = "SELECT id FROM `groups` WHERE name = @group_name AND location_id = @location_id AND tenant_id = @tenant_id;";
+
+        MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
+
+        try
+        {
+            await conn.OpenAsync();
+
+            MySqlCommand command = new MySqlCommand(query, conn);
+            command.Parameters.AddWithValue("@group_name", groupName);
+            command.Parameters.AddWithValue("@location_id", locationId);
+            command.Parameters.AddWithValue("@tenant_id", tenantId);
+
+            using (DbDataReader reader = await command.ExecuteReaderAsync())
+            {
+                if (reader.HasRows && await reader.ReadAsync())
+                {
+                    result = reader["id"].ToString() ?? "";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("Move_Devices_Dialog", "Get_Group_Id", ex.Message);
+        }
+        finally
+        {
+            conn.Close();
+        }
+
+        return result;
+    }
+
+    private async Task Move_Devices()
+    {
         this.Snackbar.Configuration.ShowCloseIcon = true;
         this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
 
-        if (String.IsNullOrEmpty(target_group_name))
-            this.Snackbar.Add("Ungültige Eingabe.", Severity.Error);
+        // Validate selection
+        if (String.IsNullOrEmpty(target_tenant_name) || String.IsNullOrEmpty(target_location_name))
+        {
+            error_message = Localizer["please_select_tenant_and_location"];
+            return;
+        }
+
+        if (SelectedDeviceIds == null || SelectedDeviceIds.Count == 0)
+        {
+            error_message = Localizer["no_devices_selected"];
+            return;
+        }
+
+        // Get IDs
+        if (String.IsNullOrEmpty(target_tenant_id))
+            target_tenant_id = await Get_Tenant_Id(target_tenant_name);
+        
+        if (String.IsNullOrEmpty(target_location_id))
+            target_location_id = await Get_Location_Id(target_location_name, target_tenant_id);
+
+        // Get group ID if group is selected
+        if (!String.IsNullOrEmpty(target_group_name))
+        {
+            target_group_id = await Get_Group_Id(target_group_name, target_location_id, target_tenant_id);
+        }
+
+        int successCount = 0;
+        int failCount = 0;
+
+        MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
+
+        try
+        {
+            await conn.OpenAsync();
+
+            foreach (var deviceId in SelectedDeviceIds)
+            {
+                try
+                {
+                    string execute_query;
+                    MySqlCommand cmd;
+
+                    if (String.IsNullOrEmpty(target_group_name))
+                    {
+                        // Move to location without group
+                        execute_query = @"UPDATE devices 
+                                         SET tenant_id = @tenant_id, 
+                                             tenant_name = @tenant_name,
+                                             location_id = @location_id, 
+                                             location_name = @location_name,
+                                             group_id = NULL, 
+                                             group_name = '-' 
+                                         WHERE id = @device_id;";
+                        cmd = new MySqlCommand(execute_query, conn);
+                        cmd.Parameters.AddWithValue("@tenant_id", target_tenant_id);
+                        cmd.Parameters.AddWithValue("@tenant_name", target_tenant_name);
+                        cmd.Parameters.AddWithValue("@location_id", target_location_id);
+                        cmd.Parameters.AddWithValue("@location_name", target_location_name);
+                        cmd.Parameters.AddWithValue("@device_id", deviceId);
+                    }
+                    else
+                    {
+                        // Move to location with group
+                        execute_query = @"UPDATE devices 
+                                         SET tenant_id = @tenant_id, 
+                                             tenant_name = @tenant_name,
+                                             location_id = @location_id, 
+                                             location_name = @location_name,
+                                             group_id = @group_id, 
+                                             group_name = @group_name 
+                                         WHERE id = @device_id;";
+                        cmd = new MySqlCommand(execute_query, conn);
+                        cmd.Parameters.AddWithValue("@tenant_id", target_tenant_id);
+                        cmd.Parameters.AddWithValue("@tenant_name", target_tenant_name);
+                        cmd.Parameters.AddWithValue("@location_id", target_location_id);
+                        cmd.Parameters.AddWithValue("@location_name", target_location_name);
+                        cmd.Parameters.AddWithValue("@group_id", target_group_id);
+                        cmd.Parameters.AddWithValue("@group_name", target_group_name);
+                        cmd.Parameters.AddWithValue("@device_id", deviceId);
+                    }
+
+                    await cmd.ExecuteNonQueryAsync();
+                    successCount++;
+                }
+                catch (Exception ex)
+                {
+                    Logging.Handler.Error("Move_Devices_Dialog", "Move_Device_" + deviceId, ex.Message);
+                    failCount++;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("Move_Devices_Dialog", "Move_Devices", ex.Message);
+            error_message = Localizer["error_occurred"] + ": " + ex.Message;
+        }
+        finally
+        {
+            await conn.CloseAsync();
+        }
+
+        // Show result
+        if (successCount > 0)
+        {
+            string message = String.Format("Moved devices:", successCount);
+            if (failCount > 0)
+                message += " " + String.Format("Failed moving devices", failCount);
+            
+            this.Snackbar.Add(message, Severity.Success);
+            this.MudDialog.Close(DialogResult.Ok(true));
+        }
         else
         {
-            bool success = false;
-
-            MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
-
-            try
-            {
-                await conn.OpenAsync();
-
-                string execute_query = "UPDATE devices SET group_id = @group_id, group_name = @group_name WHERE id = @device_id AND location_id = @location_id AND tenant_id = @tenant_id;";
-
-                MySqlCommand cmd = new MySqlCommand(execute_query, conn);
-                cmd.Parameters.AddWithValue("@tenant_id", tenant_id);
-                cmd.Parameters.AddWithValue("@location_id", location_id);
-                cmd.Parameters.AddWithValue("@device_id", target_device_id);
-                cmd.Parameters.AddWithValue("@group_name", target_group_name);
-                cmd.Parameters.AddWithValue("@group_id", target_group_id);
-                cmd.ExecuteNonQuery();
-
-                success = true;
-            }
-            catch (Exception ex)
-            {
-                Logging.Handler.Error("/location_settings -> Add_Policy_Dialog.OK", "Result", ex.Message);
-            }
-            finally
-            {
-                await conn.CloseAsync();
-            }
-
-            if (success)
-            {
-                device_list.Remove(target_device_name);
-                
-                if (device_list.Count() > 0)
-                    target_device_name = device_list[0];
-                else
-                    target_device_name = String.Empty;
-
-                this.Snackbar.Add("Device moved to target group.", Severity.Success);
-                //this.MudDialog.Close(DialogResult.Ok("success"));
-            }
-            else
-            {
-                this.Snackbar.Add(Localizer["error_occurred"], Severity.Error);
-                //this.MudDialog.Close(DialogResult.Ok("error"));
-            }
+            this.Snackbar.Add(Localizer["error_moving_devices"], Severity.Error);
         }
     }
 

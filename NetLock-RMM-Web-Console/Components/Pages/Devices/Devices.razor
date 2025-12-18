@@ -121,12 +121,7 @@
             {
                 <MudText Typo="Typo.h5">@Localizer["authorized_devices"]</MudText>
                 <MudText Typo="Typo.h6">@group_name_displayed</MudText>
-            
-                if (group_name != Localizer["all_devices"] && permissions_devices_move)
-                {                            
-                    <MudButton Class="mt-2" Size="Size.Small" Variant="Variant.Filled" Color="Color.Default" StartIcon="@Icons.Material.Filled.MoveDown" OnClick="Move_Devices_Dialog">@Localizer["move_devices"]</MudButton>
-                }   
-
+                
                     <MudTooltip Text="@Localizer["refresh"]">
                         <MudIconButton Class="ml-2 mt-2" Icon="@Icons.Material.Filled.Refresh" Variant="Variant.Filled" Size="Size.Small" Color="Color.Default" @onclick="async () => { await AfterInitializedAsync(); }"></MudIconButton>
                     </MudTooltip>
@@ -134,7 +129,36 @@
                     <MudTooltip Text="@Localizer["export_data"]">
                         <MudIconButton Class="ml-2 mt-2" Icon="@Icons.Material.Filled.FileDownload" Variant="Variant.Filled" Size="Size.Small" Color="Color.Default" @onclick="Trigger_Export_Device_Table_Dialog"></MudIconButton>
                     </MudTooltip>
-
+                    
+                    if (permissions_devices_move)
+                    {
+                        if (!moveDevices)
+                        {
+                            <MudButton Class="ml-2 mt-2" Variant="Variant.Filled" Size="Size.Small" Color="Color.Default" 
+                                       StartIcon="@Icons.Material.Filled.MoveDown" OnClick="@MoveDevicesSwitch">
+                                Move devices
+                            </MudButton>
+                        }
+                        else if (selectedDeviceIds.Count() == 0)
+                        {
+                            <MudButton Class="ml-2 mt-2" Variant="Variant.Filled" Size="Size.Small" Color="Color.Warning" 
+                                       StartIcon="@Icons.Material.Filled.Cancel" OnClick="@MoveDevicesSwitch">
+                                Cancel moving
+                            </MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Class="ml-2 mt-2" Variant="Variant.Filled" Size="Size.Small" Color="Color.Success" 
+                                       StartIcon="@Icons.Material.Filled.Check" OnClick="@Move_Devices_Dialog">
+                                Confirm move (@selectedDeviceIds.Count() devices)
+                            </MudButton>
+                            <MudButton Class="ml-2 mt-2" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Default" 
+                                       StartIcon="@Icons.Material.Filled.Cancel" OnClick="@MoveDevicesSwitch">
+                                Cancel
+                            </MudButton>
+                        }
+                    }
+                    
                     if (remote_server_client_setup)
                     {
                         <MudTooltip Text="You are connected to the remote backend.">
@@ -153,8 +177,20 @@
                         <MudTextField @bind-Value="device_table_search_string" Placeholder="@Localizer["search"]" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0" Immediate="true"></MudTextField>
                         </ToolBarContent>
                         <HeaderContent>
+                            @if (moveDevices)
+                            {
+                                <MudTh>
+                                    <div style="display: flex; align-items: center; gap: 8px; white-space: nowrap;">
+                                        <MudCheckBox T="bool" @bind-Value="allDevicesChecked" @bind-Value:after="@ToggleAllDevicesSelection"
+                                                     Color="Color.Primary" />
+                                        <MudTableSortLabel SortBy="new Func<MySQL_Entity, object>(x => x.isChecked)">
+                                        </MudTableSortLabel>
+                                    </div>
+                                </MudTh>
+                            }
+                            
                             <MudTh style="white-space: nowrap;"><MudTableSortLabel SortBy="new Func<MySQL_Entity, object>(x => x.device_name)">Name</MudTableSortLabel></MudTh>
-                            <MudTh style="white-space: nowrap;"><MudTableSortLabel SortBy="new Func<MySQL_Entity, object>(x => x.device_name)">Label</MudTableSortLabel></MudTh>
+                            <MudTh style="white-space: nowrap;"><MudTableSortLabel SortBy="new Func<MySQL_Entity, object>(x => x.label)">Label</MudTableSortLabel></MudTh>
                             <MudTh style="white-space: nowrap;"><MudTableSortLabel SortBy="new Func<MySQL_Entity, object>(x => x.last_active_user)">Last active user</MudTableSortLabel></MudTh>
                             <MudTh style="white-space: nowrap;"><MudTableSortLabel SortBy="new Func<MySQL_Entity, object>(x => x.tenant_name)">@Localizer["tenant"]</MudTableSortLabel></MudTh>
                             <MudTh style="white-space: nowrap;"><MudTableSortLabel SortBy="new Func<MySQL_Entity, object>(x => x.location_name)">@Localizer["location"]</MudTableSortLabel></MudTh>
@@ -171,10 +207,20 @@
                                 <MudTableSortLabel SortBy="new Func<MySQL_Entity, object>(x => x.uptime_monitoring_enabled)">
                                     Disconnection alert
                                 </MudTableSortLabel>
-                            </MudTh>                        </HeaderContent>
+                            </MudTh>
+                        </HeaderContent>
                     <RowTemplate Context="row">
-
+                        
                         @{
+                            if (moveDevices)
+                            {
+                                <MudTd DataLabel="" @onclick="() => Devices_RowClickHandler(row)" class="@Devices_GetRowClass(row)" style="white-space: nowrap;">
+                                    <span style="display: flex; align-items: center;">
+                                        <MudCheckBox T="bool" @bind-Value="row.isChecked" @bind-Value:after="() => OnDeviceCheckboxChanged(row)" Color="Color.Primary" />
+                                    </span>
+                                </MudTd>
+                            }
+                            
                             var iconColor = "color: grey;";
                             var iconClass = "";
                             
@@ -383,11 +429,6 @@
                                 @if (permissions_devices_deauthorize)
                                 {
                                     <MudButton Class="mb-2 mb-md-0 ml-0 ml-md-2" Size="Size.Small" Color="Color.Default" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.DesktopAccessDisabled" @onclick="async () => { await Deauthorize_Device(notes_device_id); }">@Localizer["unauthorize"]</MudButton>
-
-                                    @if (permissions_devices_move)
-                                    {
-                                        <MudButton Class="mb-2 mb-md-0 ml-0 ml-md-2" Size="Size.Small" Color="Color.Default" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.MoveDown" OnClick="Move_Device_Dialog">@Localizer["move"]</MudButton>
-                                    }
 
                                     @if (permissions_devices_remote_control)
                                     {
@@ -939,7 +980,7 @@
                                                                             ChartOptions="@cpu_usage_history_graph_options"
                                                                             AxisChartOptions="@cpu_usage_history_graph_axisChartOptions"
                                                                             CanHideSeries="false"
-                                                                            TimeLabelSpacing="TimeSpan.FromMinutes(5)"
+                                                                            TimeLabelSpacing="CpuHistoryTimeLabelSpacing"
                                                                             TimeLabelSpacingRounding="true"
                                                                             TimeLabelSpacingRoundingPadSeries="true"
                                                                             DataMarkerTooltipTimeLabelFormat="yyyy MMM dd HH:mm:ss" 
@@ -1263,6 +1304,7 @@
                                                                             ChartOptions="@ram_usage_history_graph_options"
                                                                             AxisChartOptions="@ram_usage_history_graph_axisChartOptions"
                                                                             CanHideSeries="false"
+                                                                            TimeLabelSpacing="RamHistoryTimeLabelSpacing"
                                                                             TimeLabelSpacingRounding="true"
                                                                             TimeLabelSpacingRoundingPadSeries="true"
                                                                             DataMarkerTooltipTimeLabelFormat="yyyy MMM dd HH:mm:ss" />

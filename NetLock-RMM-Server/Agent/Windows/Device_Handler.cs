@@ -112,8 +112,8 @@ namespace NetLock_RMM_Server.Agent.Windows
                 // Get the tenant id & location id with tenant_guid & location_guid
                 (int tenant_id, int location_id) = await Helper.Get_Tenant_Location_Id(device_identity.tenant_guid, device_identity.location_guid);
 
-                // Get device id with device name, tenant id & location id
-                int device_id = await Helper.Get_Device_Id(device_identity.device_name, tenant_id, location_id);
+                // Get device id with access_key
+                int device_id = await Helper.Get_Device_Id_By_Access_Key(device_identity.access_key);
 
                 await conn.OpenAsync();
 
@@ -237,13 +237,11 @@ namespace NetLock_RMM_Server.Agent.Windows
                 
                 try
                 {
-                    string device_information_general_history_reader_query = $"SELECT * FROM `devices` WHERE device_name = @device_name AND location_id = @location_id AND tenant_id = @tenant_id;";
+                    string device_information_general_history_reader_query = $"SELECT * FROM `devices` WHERE access_key = @access_key;";
                     Logging.Handler.Debug("Modules.Authentification.Verify_Device", "MySQL_Query", device_information_general_history_reader_query);
 
                     MySqlCommand device_information_general_history_command = new MySqlCommand(device_information_general_history_reader_query, conn);
-                    device_information_general_history_command.Parameters.AddWithValue("@device_name", device_identity.device_name);
-                    device_information_general_history_command.Parameters.AddWithValue("@location_id", location_id);
-                    device_information_general_history_command.Parameters.AddWithValue("@tenant_id", tenant_id);
+                    device_information_general_history_command.Parameters.AddWithValue("@access_key", device_identity.access_key);
 
                     DbDataReader device_information_general_history_reader = await device_information_general_history_command.ExecuteReaderAsync();
 

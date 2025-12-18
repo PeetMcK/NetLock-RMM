@@ -126,18 +126,19 @@ namespace NetLock_RMM_Server.SignalR
                     }
 
                     // Verbesserte Verbindungslogik: Prüfe auf existierende Verbindungen
-                    string deviceClientId = await Get_Device_ClientId(deviceIdentity.device_name, deviceIdentity.location_guid, deviceIdentity.tenant_guid);
+                    // Device identifiziert sich nur per access_key
+                    string deviceClientId = await Get_Device_ClientId_By_Access_Key(deviceIdentity.access_key);
 
                     // Wenn eine alte Verbindung existiert, entferne sie
                     if (!String.IsNullOrEmpty(deviceClientId))
                     {
-                        Logging.Handler.Debug("SignalR CommandHub", "OnConnectedAsync", $"Device {deviceIdentity.device_name} already connected with ID {deviceClientId}. Replacing connection.");
+                        Logging.Handler.Debug("SignalR CommandHub", "OnConnectedAsync", $"Device with access_key already connected with ID {deviceClientId}. Replacing connection.");
 
                         // Protokolliere Verbindungswechsel mit mehr Informationen
                         Logging.Handler.Debug("SignalR CommandHub", "OnConnectedAsync", 
-                            $"Connection replacement for device {deviceIdentity.device_name}: Old ID={deviceClientId}, New ID={clientId}");
+                            $"Connection replacement: Old ID={deviceClientId}, New ID={clientId}");
                         
-                        // Entferne alte Verbindung
+                        // Entferne alte Verbindung 
                         CommandHubSingleton.Instance.RemoveClientConnection(deviceClientId);
                     }
 
@@ -215,6 +216,52 @@ namespace NetLock_RMM_Server.SignalR
             await base.OnDisconnectedAsync(exception);
         }
 
+        // Get device client id by access_key (used when device connects)
+        public async Task<string> Get_Device_ClientId_By_Access_Key(string access_key)
+        {
+            try
+            {
+                Logging.Handler.Debug("SignalR CommandHub", "Get_Device_ClientID_By_Access_Key", $"Access Key: {access_key}");
+
+                // Optimierte Suche durch Einschränkung der Logausgabe 
+                // Nur bei niedrigerem Log-Level alle Clients auflisten
+                if (Logging.Handler.IsDebugVerboseEnabled())
+                {
+                    foreach (var client in CommandHubSingleton.Instance._clientConnections)
+                    {
+                        Logging.Handler.Debug("SignalR CommandHub", "Get_Device_ClientID_By_Access_Key", $"Connected client: {client.Key}, {client.Value}");
+                    }
+                }
+
+                var clientId = CommandHubSingleton.Instance._clientConnections.FirstOrDefault(x =>
+                {
+                    try
+                    {
+                        var rootData = JsonSerializer.Deserialize<Root_Entity>(x.Value);
+                        return rootData?.device_identity != null &&
+                               rootData.device_identity.access_key == access_key;
+                    }
+                    catch (JsonException)
+                    {
+                        return false;
+                    }
+                }).Key;
+
+                if (string.IsNullOrEmpty(clientId))
+                {
+                    Logging.Handler.Debug("SignalR CommandHub", "Get_Device_ClientID_By_Access_Key", "Client ID not found.");
+                }
+
+                return clientId;
+            }
+            catch (Exception ex)
+            {
+                Logging.Handler.Error("SignalR CommandHub", "Get_Device_ClientID_By_Access_Key", ex.ToString());
+                return null;
+            }
+        }
+
+        // Get device client id by device info (used when admin sends command via webconsole)
         public async Task<string> Get_Device_ClientId(string device_name, string location_guid, string tenant_guid)
         {
             try
@@ -687,4 +734,3 @@ namespace NetLock_RMM_Server.SignalR
         }
     }
 }
-

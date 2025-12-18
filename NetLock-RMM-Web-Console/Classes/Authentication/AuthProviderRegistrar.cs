@@ -6,4 +6,4 @@ using Microsoft.Identity.Web;
 using Microsoft.AspNetCore.Authentication;
 using System;
 // Used for SSO
-//OSSCH_START b928a8ef-ef1a-4858-a554-137b53e816c5 //OSSCH_END
+//OSSCH_START f5c5eb1f-f3f9-4edc-bc21-f3968b6d4e53 //OSSCH_END

@@ -404,48 +404,136 @@
                 }
                     @if (!Configuration.Members_Portal.IsCloudEnabled)
                     {
-                    <MudTabPanel Text="Members Portal Api">
-
-                        <MudPaper Class="mt-0">
-
-                            <MudText Class="ml-2" Typo="Typo.h6">@Localizer["Members Portal Api"]</MudText>
-
+                   <MudTabPanel Text="Licensing">
+                        <MudPaper Class="mt-0 pa-4">
+                            
+                            <!-- Header Section -->
+                            <MudText Typo="Typo.h5" Class="mb-4">
+                                <MudIcon Icon="@Icons.Material.Filled.Key" Class="mr-2" />
+                                @Localizer["Members Portal Api"]
+                            </MudText>
+                    
                             @if (!Configuration.Members_Portal.IsApiEnabled)
                             {
-                                <MudAlert Class="mb-2" Severity="Severity.Warning" Icon="@Icons.Material.Filled.SyncDisabled">@Localizer["members portal api is not enabled. Please enable it in the appsettings.json"]</MudAlert>
+                                <MudAlert Severity="Severity.Warning" Icon="@Icons.Material.Filled.SyncDisabled" Class="mb-4">
+                                    @Localizer["members portal api is not enabled. Please enable it in the appsettings.json"]
+                                </MudAlert>
                             }
                             else
                             {
-                                <MudTextField Class="ml-2 mr-2" T="string" Variant="Variant.Filled" Label="@Localizer["enter your api key here"]" @bind-Text="members_portal_api_key" Immediate="true" />
-                                <MudButton Class="mt-2 ml-2 mb-3" Size="Size.Small" Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Save" OnClick="Save_Api_Key" Disabled="@(String.IsNullOrEmpty(members_portal_api_key))">@Localizer["save"]</MudButton>
-
-                                <MudText Class="ml-2 mt-2" Typo="Typo.h6">@Localizer["license status"]</MudText>
-
-                                @if (members_portal_status == "Active")
-                                {
-                                    <div style="display: flex; align-items: center;">
-                                        <MudIcon Class="ml-2" Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
-                                        <MudText Class="ml-2" Color="Color.Success">@Localizer["active"]</MudText>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <div style="display: flex; align-items: center;">
-                                        <MudIcon Class="ml-2" Icon="@Icons.Material.Filled.Error" Color="Color.Error" />
-                                        <MudText Class="ml-2" Color="Color.Error">@Localizer["expired"]</MudText>
-                                    </div>
-                                }
-
-                                <MudText Class="ml-2 mt-2" Typo="Typo.body1">Name: @members_portal_license_name</MudText>
-                                <MudText Class="ml-2" Typo="Typo.body1">@Localizer["licenses used"]: @members_portal_licenses_used / @members_portal_licenses_max</MudText>
-                                <MudText Class="ml-2" Typo="Typo.body1">@Localizer["hard_limit"]: @members_portal_licenses_hard_limit</MudText>
-                                <MudText Class="ml-2" Typo="Typo.body1">@Localizer["code_signed"]: @members_portal_code_signed</MudText>
-
-                                <MudButton Class="ml-2 mt-3 mb-3" Size="Size.Small" Variant="Variant.Filled" Color="Color.Info" StartIcon="@Icons.Material.Filled.Update" OnClick="Update_Members_Portal_License_Information" Disabled="@(String.IsNullOrEmpty(members_portal_api_key))">@Localizer["refresh license information"]</MudButton>
+                                <!-- API Key Section (Read-Only) -->
+                                <MudCard Elevation="2" Class="mb-4">
+                                    <MudCardContent>
+                                        <MudText Typo="Typo.h6" Class="mb-3">API Konfiguration</MudText>
+                                        <MudTextField 
+                                            T="string" 
+                                            Variant="Variant.Outlined" 
+                                            Label="@Localizer["enter your api key here"]" 
+                                            @bind-Text="members_portal_api_key" 
+                                            Immediate="true"
+                                            FullWidth="true"
+                                            ReadOnly="true"
+                                            />
+                                        <MudText Typo="Typo.caption" Class="mt-2" Color="Color.Secondary">
+                                            The API key can only be changed in the appsettings.json.
+                                        </MudText>
+                                    </MudCardContent>
+                                </MudCard>
+                    
+                                <!-- License Status Section -->
+                                <MudCard Elevation="2" Class="mb-4">
+                                    <MudCardContent>
+                                        <MudText Typo="Typo.h6" Class="mb-3">@Localizer["license status"]</MudText>
+                                        
+                                        <!-- Status Badge -->
+                                        <MudChip T="string" 
+                                            Icon="@(members_portal_status == "Active" ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)" 
+                                            Color="@(members_portal_status == "Active" ? Color.Success : Color.Error)" 
+                                            Size="Size.Medium"
+                                            Class="mb-3">
+                                            @(members_portal_status == "Active" ? Localizer["active"] : Localizer["expired"])
+                                        </MudChip>
+                    
+                                        <MudDivider Class="my-3" />
+                    
+                                        <!-- License Details Grid -->
+                                        <MudGrid>
+                                            <MudItem xs="12" sm="6">
+                                                <MudText Typo="Typo.body2" Class="mb-2">
+                                                    <strong>Name:</strong> @members_portal_license_name
+                                                </MudText>
+                                            </MudItem>
+                                            
+                                            <MudItem xs="12" sm="6">
+                                                <MudCard Outlined="true" Class="pa-3">
+                                                    <MudCardContent Class="pa-2">
+                                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                                            @if (members_portal_code_signed)
+                                                            {
+                                                                <MudIcon Icon="@Icons.Material.Filled.VerifiedUser" Color="Color.Success" Size="Size.Large" />
+                                                                <div>
+                                                                    <MudText Typo="Typo.body1" Color="Color.Success">
+                                                                        <strong>Code signing enabled</strong>
+                                                                    </MudText>
+                                                                    <MudText Typo="Typo.caption" Color="Color.Success">
+                                                                        Your Windows agents are code signed
+                                                                    </MudText>
+                                                                </div>
+                                                            }
+                                                            else
+                                                            {
+                                                                <MudIcon Icon="@Icons.Material.Filled.Shield" Color="Color.Default" Size="Size.Large" />
+                                                                <div>
+                                                                    <MudText Typo="Typo.body1">
+                                                                        <strong>Code Signing not available</strong>
+                                                                    </MudText>
+                                                                    <MudText Typo="Typo.caption" Class="mb-2 mr-2">
+                                                                        Available from Tier 1 for professional deployments
+                                                                    </MudText>
+                                                                    
+                                                                    <MudButton 
+                                                                        Size="Size.Small" 
+                                                                        Variant="Variant.Filled" 
+                                                                        Color="Color.Primary" 
+                                                                        StartIcon="@Icons.Material.Filled.Upgrade"
+                                                                        Href="https://www.netlockrmm.com/pricing.html"
+                                                                        Target="_blank">
+                                                                        Upgrade
+                                                                    </MudButton>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    </MudCardContent>
+                                                </MudCard>
+                                            </MudItem>
+                                            
+                                            <MudItem xs="12" sm="6">
+                                                <MudText Typo="Typo.body2" Class="mb-2">
+                                                    <strong>@Localizer["licenses used"]:</strong>
+                                                    @members_portal_licenses_used / @members_portal_licenses_max
+                                                </MudText>
+                                                <MudProgressLinear
+                                                    Color="Color.Info"
+                                                    Value="@((double)members_portal_licenses_used / members_portal_licenses_max * 100)"
+                                                    Size="Size.Small" />
+                                            </MudItem>
+                                        </MudGrid>
+                    
+                                        <MudButton 
+                                            Class="mt-3" 
+                                            Size="Size.Small" 
+                                            Variant="Variant.Filled" 
+                                            Color="Color.Info" 
+                                            StartIcon="@Icons.Material.Filled.Update" 
+                                            OnClick="Update_Members_Portal_License_Information" 
+                                            Disabled="@(String.IsNullOrEmpty(members_portal_api_key))">
+                                            @Localizer["refresh license information"]
+                                        </MudButton>
+                                    </MudCardContent>
+                                </MudCard>
                             }
-
+                    
                         </MudPaper>
-
                     </MudTabPanel>
                     }
                 <MudTabPanel Text="Updates">
@@ -476,7 +564,7 @@
                             <br/>• The concurrent limit mainly controls how many simultaneous network connections are used
                             <br/>• Perfect for enterprise-scale deployments with thousands of agents
                         </MudAlert>
-                        
+
                         <MudAlert Class="mb-3" Severity="Severity.Warning" Icon="@Icons.Material.Filled.Speed">
                             <strong>Controls concurrent agent installations & updates:</strong>
                             <br/>• Applies to both automatic agent updates AND initial agent installations via installer
@@ -676,11 +764,7 @@
                 }
                 <MudTabPanel Text="Remote Screen Control">
                     <MudPaper Class="mt-0 mb-0">
-                        @if (!Configuration.Members_Portal.IsCodeSigned)
-                        {
-                            <MudAlert Class="mb-3" Severity="Severity.Warning" Icon="@Icons.Material.Filled.Warning">@Application_Settings.onlyPro</MudAlert>
-                        }
-
+                        
                         <MudText Class="ml-2" Typo="Typo.h6">Remote Screen Control Recording</MudText>
                         <MudSwitch Class="ml-2" Color="Color.Primary" @bind-Value="remoteScreenSessionRecordingForced" Label="Force session recording"></MudSwitch>
                         <MudText Class="ml-2 mt-2" Typo="Typo.body1">When enabled, all remote screen control sessions will be recorded by the server.</MudText>
@@ -2399,13 +2483,13 @@
     }
 
     // Save api key for members portal
-    //OSSCH_START 702acc1d-b6b5-480e-a4c8-360d76e691d5 //OSSCH_END
+    //OSSCH_START 64aa9bc9-7c1c-4efb-94b9-e82dc51146f3 //OSSCH_END
 
     // Update members portal license information
-    //OSSCH_START 72db0b45-e3c1-4bf2-bbc3-50b392e9cfa1 //OSSCH_END
+    //OSSCH_START 3a226cc2-d41c-4390-9a48-05a61ef15096 //OSSCH_END
 
     // Get members portal license status
-    //OSSCH_START 7e2bfc03-152f-41c5-8e63-06480c57d411 //OSSCH_END
+    //OSSCH_START e6474858-01f9-4d58-8f11-e56d8dd189b4 //OSSCH_END
 
     // Get agent updates settings
     private async Task Get_Agent_Updates()
@@ -2863,12 +2947,27 @@ OPTIMIZE TABLE tenants;";
 
     private async Task SaveRemoteScreenSessionRecordingSettings()
     {
+        // Check if paid user
+        if (!Configuration.Members_Portal.IsCodeSigned)
+        {
+            // Open membership reminder dialog
+            var membershipReminderDialogOptions = new DialogOptions
+            {
+                CloseButton = true,
+                FullWidth = true,
+                MaxWidth = MaxWidth.Small,
+                BackgroundClass = "dialog-blurring",
+            };
+            
+            DialogService.Show<Shared.Membership_Reminder_Dialog>(Localizer["membership required"], membershipReminderDialogOptions);
+            return;
+        }
+        
         Snackbar.Configuration.ShowCloseIcon = true;
         Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
 
         int remoteScreenSessionRecordingForcedDaysValue = remoteScreenSessionRecordingForcedDays;
-
-
+        
         // Save cleanup settings to database
         MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
 
@@ -2900,7 +2999,7 @@ OPTIMIZE TABLE tenants;";
     }
 
     // SSO Settings
-    //OSSCH_START ed49caa0-4c45-4fbe-85de-d8f953f84df5 //OSSCH_END
+    //OSSCH_START 6c7b5b79-4ebe-433d-b146-8ddc64c0cf18 //OSSCH_END
     
     // IP Whitelist Settings
     private async Task Get_Ip_Whitelist()
@@ -3109,6 +3208,6 @@ OPTIMIZE TABLE tenants;";
     }
     
     // Whitelabeling Settings
-    //OSSCH_START e8aae139-892b-45b2-bb92-f1343e686822 //OSSCH_END
+    //OSSCH_START 899c78e9-23af-416f-946c-c650dd96464c //OSSCH_END
 }
 

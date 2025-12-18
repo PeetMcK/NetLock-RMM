@@ -810,6 +810,8 @@
     {
         await Permissions();
 
+        
+        
         isMobile = await JSRuntime.InvokeAsync<bool>("isMobileDevice");
 
         if (isMobile)
@@ -829,6 +831,9 @@
         // Convert to boolean
         recordSessionForce = recordSessionForceString == "1";
 
+        if (!Members_Portal.IsCodeSigned)
+            await ShowCodeSigningWarning();
+        
         await Reconnect();
     }
 
@@ -1063,7 +1068,7 @@
                         await JSRuntime.InvokeVoidAsync("updateImageBlob", actualImageBytes);
 
                         // Check if recording is enabled
-                        //OSSCH_START 6825f5bc-fdd7-41b0-b79f-0b744cfbf344 //OSSCH_END
+                        //OSSCH_START 32e8a9fc-b3db-4dbd-b695-fba5a4724cce //OSSCH_END
 
                         // Prüfung auf leeres Bild
                         if (actualImageBytes.Length < 1000) // Anpassen je nach minimaler Bildgröße
@@ -3107,6 +3112,26 @@
     }
     
     #endregion
+
+    private async Task ShowCodeSigningWarning()
+    {
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            FullWidth = true,
+            MaxWidth = MaxWidth.Medium,
+            BackgroundClass = "dialog-blurring",
+        };
+
+        var dialog = await DialogService.ShowAsync<Code_Signing_Warning_Dialog>("Code Signing Warning", options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is bool viewPricing && viewPricing)
+        {
+            // User clicked "View Pricing" button
+            NavigationManager.NavigateTo("https://netlockrmm.com/pricing.html", true);
+        }
+    }
 
     public void Dispose()
     {

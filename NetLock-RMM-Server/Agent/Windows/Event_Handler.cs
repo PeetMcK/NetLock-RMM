@@ -77,7 +77,7 @@ namespace NetLock_RMM_Server.Agent.Windows
                 (int tenant_id, int location_id) = await Helper.Get_Tenant_Location_Id(device_identity.tenant_guid, device_identity.location_guid);
 
                 // Get device_id
-                int device_id = await Helper.Get_Device_Id(device_identity.device_name, tenant_id, location_id);
+                int device_id = await Helper.Get_Device_Id_By_Access_Key(device_identity.access_key);
 
                 // Get tenant_name & location_name
                 (string tenant_name, string location_name) = await Helper.Get_Tenant_Location_Name(tenant_id, location_id);

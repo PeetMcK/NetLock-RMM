@@ -145,21 +145,16 @@ namespace NetLock_RMM_Server.Agent.Windows
                         return "identical"; // Return identical if the number of pending updates exceeds the maximum allowed to prevent flooding the update process
                     }
 
-                    // Get the location_id and tenant_id from the device_identity
-                    (int tenantId, int locationId) = await Windows.Helper.Get_Tenant_Location_Id(device_identity.tenant_guid, device_identity.location_guid);
-
                     MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
 
-                    string query = "UPDATE devices SET update_pending = 1, update_started = @update_started WHERE device_name = @device_name AND location_id = @location_id AND tenant_id = @tenant_id;";
+                    string query = "UPDATE devices SET update_pending = 1, update_started = @update_started WHERE access_key = @access_key;";
 
                     try
                     {
                         await conn.OpenAsync();
 
                         MySqlCommand cmd = new MySqlCommand(query, conn);
-                        cmd.Parameters.AddWithValue("@device_name", device_identity.device_name);
-                        cmd.Parameters.AddWithValue("@location_id", locationId);
-                        cmd.Parameters.AddWithValue("@tenant_id", tenantId);
+                        cmd.Parameters.AddWithValue("@access_key", device_identity.access_key);
                         cmd.Parameters.AddWithValue("@update_started", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
                         
                         Logging.Handler.Debug("Agent.Windows.Version_Handler", "MySQL_Prepared_Query", query);
