@@ -105,7 +105,33 @@ namespace NetLock_RMM_Server.Agent.Windows
                         {
                             // log state with additional details
                             Logging.Handler.Debug("Modules.Authentification.Verify_Device", "Device not authorized", "Device is not authorized. //access key & hwid correct, but not authorized");
-                            authentification_result = "unauthorized";
+                            
+                            // Check if package has auto_authorize_until set and if it's still valid
+                            bool shouldAutoAuthorize = await Check_Auto_Authorization(device_identity.package_guid);
+                            
+                            if (shouldAutoAuthorize)
+                            {
+                                Logging.Handler.Debug("Modules.Authentification.Verify_Device", "Auto-Authorization", "Auto-authorizing device based on package configuration.");
+                                
+                                // Auto-authorize the device
+                                bool autoAuthorized = await Auto_Authorize_Device(device_identity.access_key);
+                                
+                                if (autoAuthorized)
+                                {
+                                    Logging.Handler.Debug("Modules.Authentification.Verify_Device", "Auto-Authorization", "Device was successfully auto-authorized.");
+                                    authentification_result = "not_synced";
+                                    authorized = "1";
+                                }
+                                else
+                                {
+                                    Logging.Handler.Error("Modules.Authentification.Verify_Device", "Auto-Authorization", "Failed to auto-authorize device.");
+                                    authentification_result = "unauthorized";
+                                }
+                            }
+                            else
+                            {
+                                authentification_result = "unauthorized";
+                            }
                         }
                         else if (device_identity.access_key != reader["access_key"].ToString() && device_identity.hwid == reader["hwid"].ToString()) //access key is not correct, but hwid is. Deauthorize the device, set new access key & set not synced
                         {
@@ -246,6 +272,28 @@ namespace NetLock_RMM_Server.Agent.Windows
 
                     authentification_result = "unauthorized";
                     device_exists = false;
+                    
+                    // Check if package has auto_authorize_until set and if it's still valid
+                    bool shouldAutoAuthorize = await Check_Auto_Authorization(device_identity.package_guid);
+                    
+                    if (shouldAutoAuthorize)
+                    {
+                        Logging.Handler.Debug("Modules.Authentification.Verify_Device", "Auto-Authorization New Device", "Auto-authorizing new device based on package configuration.");
+                        
+                        // Auto-authorize the device
+                        bool autoAuthorized = await Auto_Authorize_Device(device_identity.access_key);
+                        
+                        if (autoAuthorized)
+                        {
+                            Logging.Handler.Debug("Modules.Authentification.Verify_Device", "Auto-Authorization New Device", "New device was successfully auto-authorized.");
+                            authentification_result = "not_synced";
+                            authorized = "1";
+                        }
+                        else
+                        {
+                            Logging.Handler.Error("Modules.Authentification.Verify_Device", "Auto-Authorization New Device", "Failed to auto-authorize new device.");
+                        }
+                    }
                 }
 
                 //Update device data if authorized, not synced or synced, and device exists, and update is true
@@ -418,6 +466,73 @@ namespace NetLock_RMM_Server.Agent.Windows
             }
         }
 
+        public static async Task<bool> Check_Auto_Authorization(string package_guid)
+        {
+            MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
+
+            try
+            {
+                await conn.OpenAsync();
+
+                MySqlCommand cmd = new MySqlCommand("SELECT auto_authorize_until FROM agent_package_configurations WHERE guid = @guid;", conn);
+                cmd.Parameters.AddWithValue("@guid", package_guid);
+
+                var result = await cmd.ExecuteScalarAsync();
+
+                if (result != null && result != DBNull.Value)
+                {
+                    DateTime autoAuthorizeUntil = Convert.ToDateTime(result);
+                    bool shouldAutoAuthorize = autoAuthorizeUntil > DateTime.Now;
+                    
+                    Logging.Handler.Debug("NetLock_RMM_Server.Modules.Authentification.Check_Auto_Authorization", "auto_authorize_until", autoAuthorizeUntil.ToString("yyyy-MM-dd HH:mm:ss"));
+                    Logging.Handler.Debug("NetLock_RMM_Server.Modules.Authentification.Check_Auto_Authorization", "shouldAutoAuthorize", shouldAutoAuthorize.ToString());
+                    
+                    return shouldAutoAuthorize;
+                }
+
+                Logging.Handler.Debug("NetLock_RMM_Server.Modules.Authentification.Check_Auto_Authorization", "auto_authorize_until", "NULL or not set");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Logging.Handler.Error("NetLock_RMM_Server.Modules.Authentification.Check_Auto_Authorization", "General error", ex.ToString());
+                return false;
+            }
+            finally
+            {
+                await conn.CloseAsync();
+            }
+        }
+
+        public static async Task<bool> Auto_Authorize_Device(string access_key)
+        {
+            MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
+
+            try
+            {
+                await conn.OpenAsync();
+
+                string execute_query = "UPDATE `devices` SET authorized = 1 WHERE access_key = @access_key";
+                MySqlCommand cmd = new MySqlCommand(execute_query, conn);
+                cmd.Parameters.AddWithValue("@access_key", access_key);
+                
+                int rowsAffected = await cmd.ExecuteNonQueryAsync();
+                
+                Logging.Handler.Debug("NetLock_RMM_Server.Modules.Authentification.Auto_Authorize_Device", "rowsAffected", rowsAffected.ToString());
+                
+                return rowsAffected > 0;
+            }
+            catch (Exception ex)
+            {
+                Logging.Handler.Error("NetLock_RMM_Server.Modules.Authentification.Auto_Authorize_Device", "General error", ex.ToString());
+                return false;
+            }
+            finally
+            {
+                await conn.CloseAsync();
+            }
+        }
+
         public class JsonAuthMiddleware
         {
             private readonly RequestDelegate _next;
@@ -533,7 +648,37 @@ namespace NetLock_RMM_Server.Agent.Windows
                                 }
                                 else if (device_identity.access_key == reader["access_key"].ToString() && device_identity.hwid == reader["hwid"].ToString() && reader["authorized"].ToString() == "0") //access key & hwid correct, but not authorized
                                 {
-                                    authentification_result = "unauthorized";
+                                    // Close the reader before calling other database operations
+                                    await reader.CloseAsync();
+                                    
+                                    // Check if package has auto_authorize_until set and if it's still valid
+                                    bool shouldAutoAuthorize = await Check_Auto_Authorization(device_identity.package_guid);
+                                    
+                                    if (shouldAutoAuthorize)
+                                    {
+                                        Logging.Handler.Debug("Agent.Windows.Authentification.InvokeAsync", "Auto-Authorization", "Auto-authorizing device based on package configuration.");
+                                        
+                                        // Auto-authorize the device
+                                        bool autoAuthorized = await Auto_Authorize_Device(device_identity.access_key);
+                                        
+                                        if (autoAuthorized)
+                                        {
+                                            Logging.Handler.Debug("Agent.Windows.Authentification.InvokeAsync", "Auto-Authorization", "Device was successfully auto-authorized.");
+                                            authentification_result = "not_synced";
+                                        }
+                                        else
+                                        {
+                                            Logging.Handler.Error("Agent.Windows.Authentification.InvokeAsync", "Auto-Authorization", "Failed to auto-authorize device.");
+                                            authentification_result = "unauthorized";
+                                        }
+                                    }
+                                    else
+                                    {
+                                        authentification_result = "unauthorized";
+                                    }
+                                    
+                                    // Reader already closed, skip the close at the end
+                                    break;
                                 }
                                 else if (device_identity.access_key != reader["access_key"].ToString() && device_identity.hwid == reader["hwid"].ToString()) //access key is not correct, but hwid is. Deauthorize the device, set new access key & set not synced
                                 {
@@ -545,7 +690,8 @@ namespace NetLock_RMM_Server.Agent.Windows
                                 }
                             }
 
-                            await reader.CloseAsync();
+                            if (!reader.IsClosed)
+                                await reader.CloseAsync();
                         }
                         else //device not existing, create
                             authentification_result = "unauthorized";

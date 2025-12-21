@@ -204,6 +204,7 @@ namespace NetLock_RMM_Web_Console.Components.Pages.Devices
         private string group_id = String.Empty;
 
         private bool moveDevices = false;
+        private bool bulkRemoteShell = false;
 
         //Device information
         private bool deviceConnected = false;
@@ -5884,6 +5885,28 @@ WHERE device_id = @deviceId");
             }
         }
         
+        private async Task BulkRemoteShellSwitch()
+        {
+            if (bulkRemoteShell)
+            {
+                // Deactivate bulk remote shell mode and reset selections
+                bulkRemoteShell = false;
+                selectedDeviceIds.Clear();
+                allDevicesChecked = false;
+                
+                // Reset all checkboxes
+                foreach (var device in mysql_data)
+                {
+                    device.isChecked = false;
+                }
+            }
+            else
+            {
+                // Activate bulk remote shell mode
+                bulkRemoteShell = true;
+            }
+        }
+        
         private async Task ToggleAllDevicesSelection()
         {
             if (allDevicesChecked)
@@ -5981,6 +6004,64 @@ WHERE device_id = @deviceId");
                 }
                 
                 await Get_Clients_OverviewAsync();
+            }
+        }
+        
+        #endregion
+        
+        #region Bulk Remote Shell
+
+        private bool bulk_remote_shell_dialog_open = false;
+
+        private async Task Bulk_Remote_Shell_Dialog()
+        {
+            if (bulk_remote_shell_dialog_open)
+                return;
+
+            // Check if devices are selected
+            if (selectedDeviceIds == null || selectedDeviceIds.Count == 0)
+            {
+                Snackbar.Add("No devices selected", Severity.Warning);
+                return;
+            }
+
+            var options = new DialogOptions
+            {
+                CloseButton = true,
+                FullWidth = true,
+                MaxWidth = MaxWidth.ExtraLarge,
+                BackgroundClass = "dialog-blurring",
+            };
+
+            DialogParameters parameters = new DialogParameters();
+            parameters.Add("device_ids", selectedDeviceIds.ToList());
+            parameters.Add("tenant_guid", tenant_guid);
+            parameters.Add("location_guid", location_guid);
+
+            bulk_remote_shell_dialog_open = true;
+
+            var result = await DialogService.Show<Pages.Devices.Dialogs.Bulk_Remote_Shell.Bulk_Remote_Shell_Dialog>(string.Empty, parameters, options).Result;
+
+            bulk_remote_shell_dialog_open = false;
+
+            if (result.Canceled)
+            {
+                return;
+            }
+
+            Logging.Handler.Debug("/devices -> Bulk_Remote_Shell_Dialog", "Result", result.Data?.ToString() ?? "null");
+
+            if (result.Data != null && (bool)result.Data == true)
+            {
+                // Reset bulk remote shell mode after successful execution
+                bulkRemoteShell = false;
+                selectedDeviceIds.Clear();
+                allDevicesChecked = false;
+                
+                foreach (var device in mysql_data)
+                {
+                    device.isChecked = false;
+                }
             }
         }
         

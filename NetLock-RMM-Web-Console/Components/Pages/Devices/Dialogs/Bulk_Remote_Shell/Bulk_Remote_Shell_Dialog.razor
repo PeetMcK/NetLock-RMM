@@ -1,0 +1,727 @@
+@using MySqlConnector
+@using System.Data.Common
+@using System.Text.Json
+@using System.Xml.Serialization
+@using System.Text
+@using System.Text.RegularExpressions
+@using System.Text.Json.Nodes
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Microsoft.AspNetCore.DataProtection
+@using System.Globalization
+@using Microsoft.AspNetCore.SignalR.Client
+@using System.Net.Http
+@using System.Security.Claims
+
+@inject NavigationManager NavigationManager
+@inject ILocalStorageService localStorage
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+@inject IDataProtectionProvider DataProtectionProvider
+@inject IStringLocalizer<Pages.Devices.Dialogs.Bulk_Remote_Shell.Bulk_Remote_Shell_Dialog> Localizer
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<style>
+
+    .monaco-editor {
+    flex-grow: 1;
+    height: 25vh;
+    width: 100%; /* Each editor takes half of the screen width */
+    }
+
+</style>
+
+<MudDialog>
+
+    <TitleContent>
+        <MudText Typo="Typo.h5">Bulk Remote Shell (@device_ids.Count device(s))</MudText>
+    </TitleContent>
+    <DialogContent>
+
+        @{
+            if (!remote_server_client_setup)
+            {
+                <MudAlert Class="mb-2" Severity="Severity.Error" Icon="@Icons.Material.Filled.Error">Not connected to the NetLock RMM server backend.</MudAlert>
+
+                <MudButton Class="mb-2" Size="Size.Small" Color="Color.Default" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.ConnectWithoutContact" FullWidth="true" OnClick="Remote_Setup_SignalR">Reconnect.</MudButton>
+            }
+        }
+
+        <MudText Typo="Typo.h6">Execution Results (@device_ids.Count device(s))</MudText>
+        
+        <MudTable Class="mt-3" Items="@deviceInfos" Hover="true" Dense="true" Striped="true" FixedHeader="true" Height="300px">
+            <HeaderContent>
+                <MudTh>Device</MudTh>
+                <MudTh>Platform</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Result</MudTh>
+            </HeaderContent>
+            <RowTemplate Context="device">
+                <MudTd DataLabel="Device">
+                    <div style="display: flex; align-items: center;">
+                        <MudIcon Icon="@GetPlatformIcon(device.Platform)" Size="Size.Small" Class="mr-2" />
+                        @device.Name
+                    </div>
+                </MudTd>
+                <MudTd DataLabel="Platform">@device.Platform</MudTd>
+                <MudTd DataLabel="Status">
+                    @if (deviceHasError.ContainsKey(device.Id) && deviceHasError[device.Id])
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Error">Failed</MudChip>
+                    }
+                    else if (deviceCompleted.ContainsKey(device.Id) && deviceCompleted[device.Id])
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Success" Icon="@Icons.Material.Filled.CheckCircle">Completed</MudChip>
+                    }
+                    else if (loading_overlay)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Icon="@Icons.Material.Filled.HourglassEmpty">Executing...</MudChip>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Icon="@Icons.Material.Filled.Pending">Pending</MudChip>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Result">
+                    @if (deviceOutputs.ContainsKey(device.Id) && !string.IsNullOrEmpty(deviceOutputs[device.Id]))
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default" 
+                                   StartIcon="@Icons.Material.Filled.Visibility" 
+                                   OnClick="@(() => ShowDeviceOutput(device))">
+                            View Output
+                        </MudButton>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">No output yet</MudText>
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+
+        <MudText Class="mt-3" Typo="Typo.h6">Command Input</MudText>
+
+        @if (!expanded)
+        {
+            <MudTextField Class="mt-3" T="string" @bind-Value="@remote_shell_powershell_code" Label="" Lines="1" Required="true" Immediate="@true" @onkeydown="Enter" />
+        }
+
+        <MudSelect Class="mt-3" T="string" @bind-Value="collection_script_name" @bind-Value:after="async () => await Get_Script(collection_script_name)" Label="Templates" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter" Disabled="@(!remote_server_client_setup || loading_overlay)">
+            @foreach (var s in scripts)
+            {
+                <MudSelectItem Value="@s" />
+            }
+        </MudSelect>
+
+        <MudExpansionPanel Class="mt-3 custom-expansion-panel" @bind-Expanded="@expanded" Text="Expand">
+            <TitleContent>
+                <div class="d-flex">
+
+                    @if (expanded)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.ArrowCircleUp" class="mr-3"></MudIcon>
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.ArrowCircleDown" class="mr-3"></MudIcon>
+                    }
+
+                    <MudText>Expand</MudText>
+                </div>
+            </TitleContent>
+
+            <ChildContent>
+                <StandaloneCodeEditor Id="bulk_remote_shell-editor" CssClass="monaco-editor" @ref="remote_shell_command_editor" ConstructionOptions="Remote_Shell_Editor_Construction_Options" OnDidChangeModelContent="Remote_Shell_Editor_Handle_Input" OnKeyDown="Remote_Keyboard_Enter" />
+            </ChildContent>
+        </MudExpansionPanel>
+
+        @{
+            if (loading_overlay)
+            {
+                <MudProgressLinear Size="Size.Medium" Class="mt-2 mb-2" Color="Color.Info" Indeterminate="true">
+                    <MudText Typo="Typo.body1">Execution in progress... (@executionProgress / @device_ids.Count)</MudText>
+                </MudProgressLinear>
+            }
+        }
+
+    </DialogContent>
+    <DialogActions>
+        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Default" StartIcon="@Icons.Material.Filled.Code" OnClick="@Community_Scripts_Dialog">Community Scripts</MudButton>
+
+        <div style="display: flex; align-items: center;">
+            <MudTooltip Text="This will execute the command on all selected devices">
+                <MudIconButton Class="mr-2" Icon="@Icons.Material.Filled.Info" Variant="Variant.Text" Size="Size.Small" Color="Color.Default"></MudIconButton>
+            </MudTooltip>
+
+            <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success" FullWidth="true" StartIcon="@Icons.Material.Filled.Code" OnClick="async () => { await Bulk_Remote_Shell_Send_Command(remote_shell_powershell_code, remote_shell_wait_response); }" Disabled="@(!remote_server_client_setup || loading_overlay)">Execute on @device_ids.Count device(s)</MudButton>
+        </div>
+
+        <MudButton OnClick="@Cancel" Variant="Variant.Filled" Size="@Size.Small" Color="@Color.Default">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+    [Parameter] public List<string> device_ids { get; set; }
+    [Parameter] public string tenant_guid { get; set; }
+    [Parameter] public string location_guid { get; set; }
+
+    private string netlock_username = String.Empty;
+    private string token = String.Empty;
+    private bool loading_overlay = false;
+    private bool expanded = false;
+    private int executionProgress = 0;
+
+    private class DeviceInfo
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public string Platform { get; set; }
+    }
+
+    private List<DeviceInfo> deviceInfos = new List<DeviceInfo>();
+    private Dictionary<string, string> deviceOutputs = new Dictionary<string, string>();
+    private Dictionary<string, bool> deviceCompleted = new Dictionary<string, bool>();
+    private Dictionary<string, bool> deviceHasError = new Dictionary<string, bool>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Get the current user from the authentication state
+        var user = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+
+        // Check if user is authenticated
+        if (user?.Identity is not { IsAuthenticated: true })
+        {
+            NavigationManager.NavigateTo("/login", true);
+            return;
+        }
+
+        // Retrieve username from claims
+        netlock_username = user.FindFirst(ClaimTypes.Email)?.Value;
+
+        token = await Classes.Authentication.User.Get_Remote_Session_Token(netlock_username);
+
+        await Remote_Setup_SignalR();
+
+        // Load device information
+        await LoadDeviceInfos();
+
+        await Get_Scripts();
+    }
+
+    private async Task LoadDeviceInfos()
+    {
+        foreach (var device_id in device_ids)
+        {
+            var name = await Classes.MySQL.Handler.GetDeviceNameById(device_id);
+            var platform = await Classes.MySQL.Handler.Get_Device_Platform(device_id);
+            
+            deviceInfos.Add(new DeviceInfo
+            {
+                Id = device_id,
+                Name = name,
+                Platform = platform
+            });
+            
+            // Initialize output tracking for each device
+            deviceOutputs[device_id] = "";
+            deviceCompleted[device_id] = false;
+            deviceHasError[device_id] = false;
+        }
+    }
+
+    private string GetPlatformIcon(string platform)
+    {
+        return platform switch
+        {
+            "Windows" => Icons.Custom.Brands.MicrosoftWindows,
+            "Linux" => Icons.Custom.Brands.Linux,
+            "MacOS" => Icons.Custom.Brands.Apple,
+            _ => Icons.Material.Filled.Computer
+        };
+    }
+
+    private async Task ShowDeviceOutput(DeviceInfo device)
+    {
+        var parameters = new DialogParameters
+        {
+            ["DeviceName"] = device.Name,
+            ["Output"] = deviceOutputs.ContainsKey(device.Id) ? deviceOutputs[device.Id] : "No output available",
+            ["HasError"] = deviceHasError.ContainsKey(device.Id) && deviceHasError[device.Id]
+        };
+
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Large,
+            FullWidth = true
+        };
+
+        await DialogService.ShowAsync<Bulk_Remote_Shell_Result_Dialog>("Device Output", parameters, options);
+    }
+
+    #region Editors
+
+    private StandaloneCodeEditor remote_shell_command_editor = null!;
+
+    private StandaloneEditorConstructionOptions Remote_Shell_Editor_Construction_Options(StandaloneCodeEditor editor)
+    {
+        return new StandaloneEditorConstructionOptions
+            {
+                AutomaticLayout = true,
+                Theme = "vs-dark",
+                Language = "powershell",
+                ReadOnly = false,
+            };
+    }
+
+    private async Task Remote_Shell_Editor_Handle_Input(ModelContentChangedEvent e)
+    {
+        remote_shell_powershell_code = await remote_shell_command_editor.GetValue();
+    }
+
+    #endregion
+
+    #region Scripts
+
+    private List<string> scripts = new List<string>();
+
+    private string collection_script_name = String.Empty;
+    private string collection_script = String.Empty;
+
+    private async Task Get_Scripts()
+    {
+        // Get scripts for all platforms (or we could filter by the most common platform)
+        MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
+
+        try
+        {
+            await conn.OpenAsync();
+
+            string query = "SELECT DISTINCT name FROM scripts;";
+
+            MySqlCommand cmd = new MySqlCommand(query, conn);
+
+            using (DbDataReader reader = await cmd.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    scripts.Add(reader["name"].ToString() ?? String.Empty);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("/bulk_remote_shell -> Get_Scripts", "Result", ex.ToString());
+        }
+        finally
+        {
+            await conn.CloseAsync();
+        }
+    }
+
+    private async Task Get_Script(string name)
+    {
+        MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
+
+        try
+        {
+            await conn.OpenAsync();
+
+            string query = "SELECT * FROM scripts WHERE name = @name LIMIT 1;";
+
+            MySqlCommand cmd = new MySqlCommand(query, conn);
+            cmd.Parameters.AddWithValue("@name", name);
+
+            using (DbDataReader reader = await cmd.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    await remote_shell_command_editor.SetValue(reader["script"].ToString() ?? String.Empty);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("/bulk_remote_shell -> Get_Script", "Result", ex.ToString());
+        }
+        finally
+        {
+            await conn.CloseAsync();
+        }
+    }
+
+    #endregion
+
+    #region Remote
+
+    private async Task Remote_Keyboard_Enter(BlazorMonaco.KeyboardEvent e)
+    {
+        if (remote_server_client_setup)
+        {
+            if (e.CtrlKey && e.Code == "Enter" && !String.IsNullOrEmpty(remote_shell_powershell_code) && !Regex.IsMatch(remote_shell_powershell_code, @"^\s*$"))
+                await Bulk_Remote_Shell_Send_Command(remote_shell_powershell_code, remote_shell_wait_response);
+        }
+    }
+
+    private async Task Enter(KeyboardEventArgs e)
+    {
+        if (remote_server_client_setup)
+        {
+            if (e.Code == "Enter" && !String.IsNullOrEmpty(remote_shell_powershell_code) && !Regex.IsMatch(remote_shell_powershell_code, @"^\s*$"))
+                await Bulk_Remote_Shell_Send_Command(remote_shell_powershell_code, remote_shell_wait_response);
+        }
+    }
+
+    public class Remote_Admin_Identity
+    {
+        public string token { get; set; }
+    }
+
+    public class Remote_Target_Device
+    {
+        public string device_id { get; set; }
+        public string device_name { get; set; }
+        public string location_guid { get; set; }
+        public string tenant_guid { get; set; }
+    }
+
+    public class Remote_Command
+    {
+        public int type { get; set; }
+        public bool wait_response { get; set; }
+        public string powershell_code { get; set; }
+        public int file_browser_command { get; set; }
+        public string file_browser_path { get; set; }
+        public string file_browser_path_move { get; set; }
+        public string file_browser_file_content { get; set; }
+    }
+
+    public class Remote_Root_Object
+    {
+        public Remote_Admin_Identity admin_identity { get; set; }
+        public Remote_Target_Device target_device { get; set; }
+        public Remote_Command command { get; set; }
+    }
+
+    // Remote Server
+    private HubConnection remote_server_client;
+    private System.Threading.Timer remote_server_clientCheckTimer;
+    private bool remote_server_client_setup = false;
+    private string remote_admin_identity = String.Empty;
+
+    // Remote Shell
+    private string remote_shell_powershell_code = String.Empty;
+    private bool remote_shell_wait_response = true;
+
+    public async Task Remote_Setup_SignalR()
+    {
+        this.Snackbar.Configuration.ShowCloseIcon = true;
+        this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+
+        try
+        {
+            Remote_Admin_Identity identity = new Remote_Admin_Identity
+                {
+                    token = token
+                };
+
+            // Create the object that contains the device_identity object
+            var jsonObject = new { admin_identity = identity };
+
+            // Serialize the object to a JSON string
+            string json = JsonSerializer.Serialize(jsonObject, new JsonSerializerOptions { WriteIndented = true });
+
+            remote_admin_identity = json;
+
+            remote_server_client = new HubConnectionBuilder()
+                .WithUrl(Configuration.Remote_Server.Connection_String + "/commandHub", options =>
+                {
+                    options.Headers.Add("Admin-Identity", Uri.EscapeDataString(remote_admin_identity));
+                })
+                .Build();
+
+            // Remote Shell - Response mit Device-Zuordnung über >>nlocksep<< Separator
+            remote_server_client.On<string>("ReceiveClientResponseRemoteShell", async (response) =>
+            {
+                Logging.Handler.Debug("/bulk_remote_shell -> Remote_Setup_SignalR", "ReceiveClientResponseRemoteShell", response);
+
+                // Use InvokeAsync to reflect changes on UI immediately
+                await InvokeAsync(() =>
+                {
+                    try
+                    {
+                        // Parse Response: device_id + ">>nlocksep<<" + response
+                        string deviceId = "";
+                        string output = response;
+                        
+                        if (response.Contains(">>nlocksep<<"))
+                        {
+                            var parts = response.Split(new[] { ">>nlocksep<<" }, StringSplitOptions.None);
+                            if (parts.Length >= 2)
+                            {
+                                deviceId = parts[0].Trim();
+                                output = parts[1];
+                            }
+                        }
+
+                        // Ordne Output dem richtigen Gerät zu
+                        if (!string.IsNullOrEmpty(deviceId) && deviceOutputs.ContainsKey(deviceId))
+                        {
+                            string timestamp = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
+                            
+                            // Append output to existing output
+                            if (string.IsNullOrEmpty(deviceOutputs[deviceId]))
+                            {
+                                deviceOutputs[deviceId] = $"[{timestamp}]\n{output}";
+                            }
+                            else
+                            {
+                                deviceOutputs[deviceId] = $"{deviceOutputs[deviceId]}\n\n--------------\n\n[{timestamp}]\n{output}";
+                            }
+                            
+                            deviceCompleted[deviceId] = true;
+                            executionProgress++;
+                            
+                            Logging.Handler.Debug("/bulk_remote_shell", "Response assigned to device", $"{deviceId} - Progress: {executionProgress}/{device_ids.Count}");
+                        }
+                        else
+                        {
+                            // Fallback: Wenn keine device_id erkannt wurde
+                            Logging.Handler.Debug("/bulk_remote_shell", "Could not parse device_id from response", response.Substring(0, Math.Min(100, response.Length)));
+                            
+                            // Zeige bei erstem wartenden Gerät
+                            var waitingDevice = deviceInfos.FirstOrDefault(d => !deviceCompleted[d.Id]);
+                            if (waitingDevice != null)
+                            {
+                                string timestamp = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
+                                deviceOutputs[waitingDevice.Id] = $"[{timestamp}] [Warning: Could not identify device]\n{response}";
+                                deviceCompleted[waitingDevice.Id] = true;
+                                executionProgress++;
+                            }
+                        }
+
+                        if (executionProgress >= device_ids.Count)
+                        {
+                            loading_overlay = false;
+                        }
+
+                        StateHasChanged();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logging.Handler.Error("/bulk_remote_shell", "Error parsing response", ex.Message);
+                        deviceHasError[deviceInfos.First().Id] = true;
+                        StateHasChanged();
+                    }
+                });
+            });
+
+            // Start the connection
+            await remote_server_client.StartAsync();
+
+            remote_server_client_setup = true;
+
+            Logging.Handler.Debug("/bulk_remote_shell -> Remote_Setup_SignalR", "Connected to the remote server.", remote_server_client_setup.ToString());
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("/bulk_remote_shell -> Remote_Setup_SignalR", "General error", ex.ToString());
+        }
+    }
+
+    #endregion
+
+    #region Bulk Remote Shell
+    private async Task Bulk_Remote_Shell_Send_Command(string powershell_code, bool wait_response)
+    {
+        try
+        {
+            string encoded_powershell_code = await Base64.Handler.Encode(powershell_code);
+
+            loading_overlay = true;
+            executionProgress = 0;
+            
+            // Reset status for all devices
+            foreach (var device in deviceInfos)
+            {
+                deviceCompleted[device.Id] = false;
+                deviceHasError[device.Id] = false;
+            }
+            
+            StateHasChanged();
+
+            // Send command to each device
+            foreach (var deviceInfo in deviceInfos)
+            {
+                try
+                {
+                    // Create the object
+                    var adminIdentity = new Remote_Admin_Identity
+                    {
+                        token = token
+                    };
+
+                    var targetDevice = new Remote_Target_Device
+                    {
+                        device_id = deviceInfo.Id,
+                        device_name = deviceInfo.Name,
+                        tenant_guid = tenant_guid,
+                        location_guid = location_guid
+                    };
+
+                    var command = new Remote_Command
+                    {
+                        type = 0,
+                        wait_response = wait_response,
+                        powershell_code = encoded_powershell_code
+                    };
+
+                    var rootObject = new Remote_Root_Object
+                    {
+                        admin_identity = adminIdentity,
+                        target_device = targetDevice,
+                        command = command
+                    };
+
+                    // Serialization of the object
+                    string json = JsonSerializer.Serialize(rootObject, new JsonSerializerOptions { WriteIndented = true });
+
+                    if (remote_server_client_setup)
+                    {
+                        Logging.Handler.Debug("/bulk_remote_shell -> Bulk_Remote_Shell_Send_Command", "Sending to device", deviceInfo.Name);
+
+                        await remote_server_client.SendAsync("MessageReceivedFromWebconsole", json);
+
+                        // Small delay between commands to avoid overwhelming the server
+                        await Task.Delay(100);
+                    }
+                    else
+                    {
+                        Logging.Handler.Error("/bulk_remote_shell -> Bulk_Remote_Shell_Send_Command", "Remote server not setup.", "");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logging.Handler.Error("/bulk_remote_shell -> Bulk_Remote_Shell_Send_Command", $"Error sending to device {deviceInfo.Name}", ex.Message);
+                    
+                    await InvokeAsync(() =>
+                    {
+                        string timestamp = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
+                        deviceOutputs[deviceInfo.Id] = $"[{timestamp}] [ERROR] Failed to send command: {ex.Message}\n{deviceOutputs[deviceInfo.Id]}";
+                        deviceHasError[deviceInfo.Id] = true;
+                        deviceCompleted[deviceInfo.Id] = true;
+                        executionProgress++;
+                        StateHasChanged();
+                    });
+                }
+            }
+
+            // If not waiting for response, mark as complete
+            if (!wait_response)
+            {
+                foreach (var device in deviceInfos)
+                {
+                    if (!deviceCompleted[device.Id])
+                    {
+                        deviceOutputs[device.Id] = $"{DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss")}\nCommand sent successfully (no response expected)\n{deviceOutputs[device.Id]}";
+                        deviceCompleted[device.Id] = true;
+                    }
+                }
+                loading_overlay = false;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("/bulk_remote_shell -> Bulk_Remote_Shell_Send_Command", "General error", ex.Message);
+            loading_overlay = false;
+            StateHasChanged();
+        }
+    }
+
+    #endregion
+
+    private async Task OK()
+    {
+        this.Snackbar.Configuration.ShowCloseIcon = true;
+        this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+
+        bool success = true;
+
+        if (success)
+        {
+            this.MudDialog.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            this.Snackbar.Add("An error occurred", Severity.Error);
+            this.MudDialog.Close(DialogResult.Ok(false));
+        }
+    }
+
+    private async Task Cancel()
+    {
+        // Stop the remote server client
+        if (remote_server_client_setup)
+        {
+            await remote_server_client.StopAsync();
+            remote_server_client_setup = false;
+        };
+
+        this.MudDialog.Cancel();
+    }
+
+    private bool community_scripts_dialog_open = false;
+
+    private async Task Community_Scripts_Dialog()
+    {
+        this.Snackbar.Configuration.ShowCloseIcon = true;
+        this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+
+        try
+        {
+            if (community_scripts_dialog_open)
+                return;
+
+            var options = new DialogOptions
+                {
+                    CloseButton = true,
+                    FullWidth = true,
+                    MaxWidth = MaxWidth.ExtraLarge,
+                    BackgroundClass = "dialog-blurring",
+                };
+
+            DialogParameters parameters = new DialogParameters();
+            parameters.Add("editor", "true");
+
+            community_scripts_dialog_open = true;
+
+            var result = await this.DialogService.Show<Pages.Collections.Scripts.Community_Scripts.Community_Scripts_Dialog>(string.Empty, parameters, options).Result;
+
+            // Handle the result if needed
+            if (!result.Canceled)
+            {
+                var resultData = result.Data;
+
+                if (resultData != null)
+                {
+                    string script = await remote_shell_command_editor.GetValue();
+                    script += await Base64.Handler.Decode(resultData.ToString());
+
+                    await remote_shell_command_editor.SetValue(script);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("/bulk_remote_shell -> Community_Scripts_Dialog", "Community_Scripts_Dialog", ex.ToString());
+        }
+        finally
+        {
+            community_scripts_dialog_open = false;
+        }
+    }
+}
+

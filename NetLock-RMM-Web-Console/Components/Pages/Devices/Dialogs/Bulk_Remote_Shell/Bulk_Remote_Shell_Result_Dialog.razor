@@ -1,0 +1,61 @@
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Terminal" Class="mr-2" />
+            @DeviceName - Output
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (HasError)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-3">
+                Execution failed or returned an error
+            </MudAlert>
+        }
+        
+        <MudPaper Elevation="0" Class="pa-4" Style="background-color: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', 'Courier New', monospace; max-height: 500px; overflow-y: auto;">
+            <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">@Output</pre>
+        </MudPaper>
+        
+        <MudButton Class="mt-3" 
+                   Variant="Variant.Outlined" 
+                   StartIcon="@Icons.Material.Filled.ContentCopy" 
+                   OnClick="@CopyToClipboard"
+                   FullWidth="true">
+            Copy to Clipboard
+        </MudButton>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Default" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+    
+    [Parameter] public string DeviceName { get; set; }
+    [Parameter] public string Output { get; set; }
+    [Parameter] public bool HasError { get; set; }
+
+    private async Task CopyToClipboard()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", Output);
+            Snackbar.Add("Output copied to clipboard", Severity.Success);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Failed to copy to clipboard", Severity.Error);
+        }
+    }
+
+    private void Close()
+    {
+        MudDialog.Close();
+    }
+}
+

@@ -43,7 +43,7 @@
             {
                 <MudTextField class="mt-2" Label="Name" T="string" @bind-Value="name" Required="true" RequiredError="@Localizer["required"]" Immediate="true" ReadOnly="false" />
 
-                <MudCheckBox Class="mt-2 ml-2" T="bool" @bind-Value="@ssl" @bind-Value:after="Update_Ports" Label="SSL" Color="Color.Primary" />
+                <MudCheckBox Class="mt-2 ml-2" T="bool" @bind-Value="@ssl" Label="SSL" Color="Color.Primary" />
 
                 <div style="display: flex; align-items: center;">
                     <MudText Typo="Typo.h6">@Localizer["target_server"]</MudText>
@@ -86,6 +86,8 @@
                     <MudSelectItem Value="@("en-US")" />
                     <!--<MudSelectItem Value="@("de-DE")" />-->
                 </MudSelect>
+                
+                <MudDatePicker Class="mt-2" Label="Automatically authorize devices until" @bind-Date="autoAuthorizeUntilDateTime" Required="true" RequiredError="@Localizer["required"]" />
 
                 <MudPaper Class="mt-2">
                     <MudText Typo="Typo.h6">@Localizer["download_installer"]</MudText>
@@ -198,6 +200,7 @@
     private string location_id = String.Empty;
     private string language = String.Empty;
     private string architecture = "win-x64";
+    private DateTime? autoAuthorizeUntilDateTime = DateTime.Now.AddDays(30);
 
     protected override async Task OnInitializedAsync()
     {
@@ -214,95 +217,6 @@
         await Get_Configurations();
 
         StateHasChanged();
-    }
-
-    // Update ports
-    private async Task Update_Ports()
-    {
-        if (ssl)
-        {
-            if (communication_servers.Contains(":"))
-            {
-                string[] communication_servers_split = communication_servers.Split(':');
-
-                if (communication_servers_split[1] != "7443")
-                    communication_servers = communication_servers_split[0] + ":7443";
-            }
-
-            if (remote_servers.Contains(":"))
-            {
-                string[] remote_servers_split = remote_servers.Split(':');
-
-                if (remote_servers_split[1] != "7443")
-                    remote_servers = remote_servers_split[0] + ":7443";
-            }
-
-            if (update_servers.Contains(":"))
-            {
-                string[] update_servers_split = update_servers.Split(':');
-
-                if (update_servers_split[1] != "7443")
-                    update_servers = update_servers_split[0] + ":7443";
-            }
-
-            if (trust_servers.Contains(":"))
-            {
-                string[] trust_servers_split = trust_servers.Split(':');
-
-                if (trust_servers_split[1] != "7443")
-                    trust_servers = trust_servers_split[0] + ":7443";
-            }
-
-            if (file_servers.Contains(":"))
-            {
-                string[] file_servers_split = file_servers.Split(':');
-
-                if (file_servers_split[1] != "7443")
-                    file_servers = file_servers_split[0] + ":7443";
-            }
-        }
-        else
-        {
-            if (communication_servers.Contains(":"))
-            {
-                string[] communication_servers_split = communication_servers.Split(':');
-
-                if (communication_servers_split[1] != "7080")
-                    communication_servers = communication_servers_split[0] + ":7080";
-            }
-
-            if (remote_servers.Contains(":"))
-            {
-                string[] remote_servers_split = remote_servers.Split(':');
-
-                if (remote_servers_split[1] != "7080")
-                    remote_servers = remote_servers_split[0] + ":7080";
-            }
-
-            if (update_servers.Contains(":"))
-            {
-                string[] update_servers_split = update_servers.Split(':');
-
-                if (update_servers_split[1] != "7080")
-                    update_servers = update_servers_split[0] + ":7080";
-            }
-
-            if (trust_servers.Contains(":"))
-            {
-                string[] trust_servers_split = trust_servers.Split(':');
-
-                if (trust_servers_split[1] != "7080")
-                    trust_servers = trust_servers_split[0] + ":7080";
-            }
-
-            if (file_servers.Contains(":"))
-            {
-                string[] file_servers_split = file_servers.Split(':');
-
-                if (file_servers_split[1] != "7080")
-                    file_servers = file_servers_split[0] + ":7080";
-            }
-        }
     }
 
     private async Task CleanInput()
@@ -565,6 +479,7 @@
                         language = reader["language"].ToString() ?? String.Empty;
                         ssl = reader["ssl"].ToString() == "1";
                         package_guid = reader["guid"].ToString() ?? String.Empty;
+                        autoAuthorizeUntilDateTime = reader["auto_authorize_until"] != DBNull.Value ? Convert.ToDateTime(reader["auto_authorize_until"]) : DateTime.Now.AddDays(30);
                     }
                 }
             }
@@ -703,7 +618,7 @@
         {
             await conn.OpenAsync();
 
-            string query = "UPDATE agent_package_configurations SET `name` = @name, `ssl` = @ssl, communication_servers = @communication_servers, remote_servers = @remote_servers, update_servers = @update_servers, trust_servers = @trust_servers, file_servers = @file_servers, tenant_id = @tenant_id, location_id = @location_id, language = @language WHERE id = @id;";
+            string query = "UPDATE agent_package_configurations SET `name` = @name, `ssl` = @ssl, communication_servers = @communication_servers, remote_servers = @remote_servers, update_servers = @update_servers, trust_servers = @trust_servers, file_servers = @file_servers, tenant_id = @tenant_id, location_id = @location_id, language = @language, auto_authorize_until = @auto_authorize_until WHERE id = @id;";
 
             MySqlCommand cmd = new MySqlCommand(query, conn);
             cmd.Parameters.AddWithValue("@id", id);
@@ -717,6 +632,7 @@
             cmd.Parameters.AddWithValue("@location_id", location_id);
             cmd.Parameters.AddWithValue("@language", language);
             cmd.Parameters.AddWithValue("@ssl", ssl ? 1 : 0);
+            cmd.Parameters.AddWithValue("@auto_authorize_until", autoAuthorizeUntilDateTime.HasValue ? autoAuthorizeUntilDateTime.Value : DBNull.Value);
 
             cmd.ExecuteNonQuery();
 
@@ -725,6 +641,7 @@
         catch (Exception ex)
         {
             Logging.Handler.Error("/MainLayout -> Update_Configuration", "Result", ex.ToString());
+            this.Snackbar.Add(Localizer["error_occurred"], Severity.Error);
         }
         finally
         {
@@ -790,7 +707,7 @@
             await Get_Configurations();
     }
 
-    //OSSCH_START 6e10293d-1429-494a-938a-466d0390913f //OSSCH_END
+    //OSSCH_START bd952653-0ea9-452f-9dc7-1c7dc011d637 //OSSCH_END
 
     private async Task GetCloudPreset()
     {

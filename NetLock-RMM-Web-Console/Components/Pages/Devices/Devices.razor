@@ -159,6 +159,35 @@
                         }
                     }
                     
+                    if (permissions_devices_remote_shell)
+                    {
+                        if (!bulkRemoteShell)
+                        {
+                            <MudButton Class="ml-2 mt-2" Variant="Variant.Filled" Size="Size.Small" Color="Color.Default" 
+                                       StartIcon="@Icons.Material.Filled.Terminal" OnClick="@BulkRemoteShellSwitch">
+                                Bulk Remote Shell
+                            </MudButton>
+                        }
+                        else if (selectedDeviceIds.Count() == 0)
+                        {
+                            <MudButton Class="ml-2 mt-2" Variant="Variant.Filled" Size="Size.Small" Color="Color.Warning" 
+                                       StartIcon="@Icons.Material.Filled.Cancel" OnClick="@BulkRemoteShellSwitch">
+                                Cancel selection
+                            </MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Class="ml-2 mt-2" Variant="Variant.Filled" Size="Size.Small" Color="Color.Success" 
+                                       StartIcon="@Icons.Material.Filled.Terminal" OnClick="@Bulk_Remote_Shell_Dialog">
+                                Execute on @selectedDeviceIds.Count() device(s)
+                            </MudButton>
+                            <MudButton Class="ml-2 mt-2" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Default" 
+                                       StartIcon="@Icons.Material.Filled.Cancel" OnClick="@BulkRemoteShellSwitch">
+                                Cancel
+                            </MudButton>
+                        }
+                    }
+                    
                     if (remote_server_client_setup)
                     {
                         <MudTooltip Text="You are connected to the remote backend.">
@@ -177,7 +206,7 @@
                         <MudTextField @bind-Value="device_table_search_string" Placeholder="@Localizer["search"]" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0" Immediate="true"></MudTextField>
                         </ToolBarContent>
                         <HeaderContent>
-                            @if (moveDevices)
+                            @if (moveDevices || bulkRemoteShell)
                             {
                                 <MudTh>
                                     <div style="display: flex; align-items: center; gap: 8px; white-space: nowrap;">
@@ -212,7 +241,7 @@
                     <RowTemplate Context="row">
                         
                         @{
-                            if (moveDevices)
+                            if (moveDevices || bulkRemoteShell)
                             {
                                 <MudTd DataLabel="" @onclick="() => Devices_RowClickHandler(row)" class="@Devices_GetRowClass(row)" style="white-space: nowrap;">
                                     <span style="display: flex; align-items: center;">

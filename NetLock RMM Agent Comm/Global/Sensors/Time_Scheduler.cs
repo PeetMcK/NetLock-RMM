@@ -94,6 +94,46 @@ namespace Global.Sensors
             public bool notifications_ntfy_sh { get; set; }
         }
 
+        // Helper method to check if sensor should run today based on weekday settings
+        private static bool ShouldRunToday(Sensor sensor)
+        {
+            switch (DateTime.Now.DayOfWeek)
+            {
+                case DayOfWeek.Monday:
+                    return sensor.time_scheduler_monday;
+                case DayOfWeek.Tuesday:
+                    return sensor.time_scheduler_tuesday;
+                case DayOfWeek.Wednesday:
+                    return sensor.time_scheduler_wednesday;
+                case DayOfWeek.Thursday:
+                    return sensor.time_scheduler_thursday;
+                case DayOfWeek.Friday:
+                    return sensor.time_scheduler_friday;
+                case DayOfWeek.Saturday:
+                    return sensor.time_scheduler_saturday;
+                case DayOfWeek.Sunday:
+                    return sensor.time_scheduler_sunday;
+                default:
+                    return false;
+            }
+        }
+
+        // Helper method to write encrypted sensor to disk
+        private static void WriteEncryptedSensor(string filePath, Sensor sensor)
+        {
+            try
+            {
+                string sensor_json = JsonSerializer.Serialize(sensor);
+                string encrypted_json = Encryption.String_Encryption.Encrypt(sensor_json, Application_Settings.NetLock_Local_Encryption_Key);
+                File.WriteAllText(filePath, encrypted_json);
+            }
+            catch (Exception e)
+            {
+                Logging.Error("Sensors.Time_Scheduler.WriteEncryptedSensor", "Write encrypted sensor to disk",
+                    "Sensor id: " + sensor.id + " Exception: " + e.ToString());
+            }
+        }
+
         public class Notifications
         {
             public bool mail { get; set; }
@@ -147,19 +187,25 @@ namespace Global.Sensors
                     if (!File.Exists(sensor_path))
                     {
                         Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "Check if sensor exists on disk", "false");
-                        File.WriteAllText(sensor_path, sensor_json);
+                        // Encrypt sensor JSON before writing
+                        string encrypted_sensor_json = Encryption.String_Encryption.Encrypt(sensor_json, Application_Settings.NetLock_Local_Encryption_Key);
+                        File.WriteAllText(sensor_path, encrypted_sensor_json);
                     }
 
                     // Check if script has changed, if so update it
                     if (File.Exists(sensor_path))
                     {
-                        string existing_sensor_json = File.ReadAllText(sensor_path);
+                        // Decrypt sensor JSON after reading
+                        string encrypted_existing_sensor_json = File.ReadAllText(sensor_path);
+                        string existing_sensor_json = Encryption.String_Encryption.Decrypt(encrypted_existing_sensor_json, Application_Settings.NetLock_Local_Encryption_Key);
                         Sensor existing_sensor = JsonSerializer.Deserialize<Sensor>(existing_sensor_json);
                         
                         if (existing_sensor.script != sensor.script)
                         {
                             Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "Sensor script has changed. Updating it.", "Sensor: " + sensor.name + " Sensor id: " + sensor.id);
-                            File.WriteAllText(sensor_path, sensor_json);
+                            // Encrypt sensor JSON before writing
+                            string encrypted_sensor_json = Encryption.String_Encryption.Encrypt(sensor_json, Application_Settings.NetLock_Local_Encryption_Key);
+                            File.WriteAllText(sensor_path, encrypted_sensor_json);
                         }
                     }
                 }
@@ -193,8 +239,18 @@ namespace Global.Sensors
                 // Now read & consume each sensor
                 foreach (var sensor in Directory.GetFiles(Application_Paths.program_data_sensors))
                 {
-                    string sensor_json = File.ReadAllText(sensor);
+                    // Decrypt sensor JSON after reading
+                    string encrypted_sensor_json = File.ReadAllText(sensor);
+                    string sensor_json = Encryption.String_Encryption.Decrypt(encrypted_sensor_json, Application_Settings.NetLock_Local_Encryption_Key);
                     Sensor sensor_item = JsonSerializer.Deserialize<Sensor>(sensor_json);
+
+                    // Null-check after deserialization
+                    if (sensor_item == null)
+                    {
+                        Logging.Error("Sensors.Time_Scheduler.Check_Execution", "Failed to deserialize sensor", "Sensor file: " + sensor);
+                        continue;
+                    }
+
                     sensor_id = sensor_item.id; // needed for logging
 
                     Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "Check sensor execution", "Sensor: " + sensor_item.name + " time_scheduler_type: " + sensor_item.time_scheduler_type);
@@ -281,37 +337,39 @@ namespace Global.Sensors
                     }
                     else if (sensor_item.time_scheduler_type == 3) // all x minutes
                     {
-                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "all x minutes", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + DateTime.Parse(sensor_item.last_run ?? DateTime.Now.ToString()));
+                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "all x minutes", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + (sensor_item.last_run ?? DateTime.Now.ToString(CultureInfo.InvariantCulture)));
 
                         // Check if last run is empty, if so set it to now
                         if (String.IsNullOrEmpty(sensor_item.last_run))
                         {
-                            sensor_item.last_run = DateTime.Now.ToString();
+                            sensor_item.last_run = DateTime.Now.ToString(CultureInfo.InvariantCulture);
                             string updated_sensor_json = JsonSerializer.Serialize(sensor_item);
                             File.WriteAllText(sensor, updated_sensor_json);
                         }
 
-                        if (DateTime.Parse(sensor_item.last_run) < DateTime.Now - TimeSpan.FromMinutes(sensor_item.time_scheduler_minutes))
+                        DateTime lastRun = DateTime.Parse(sensor_item.last_run, CultureInfo.InvariantCulture);
+                        if (lastRun <= DateTime.Now - TimeSpan.FromMinutes(sensor_item.time_scheduler_minutes))
                             execute = true;
 
-                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "all x minutes", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + DateTime.Parse(sensor_item.last_run) + " execute: " + execute.ToString());
+                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "all x minutes", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + lastRun + " execute: " + execute.ToString());
                     }
                     else if (sensor_item.time_scheduler_type == 4) // all x hours
                     {
-                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "all x hours", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + DateTime.Parse(sensor_item.last_run ?? DateTime.Now.ToString()));
+                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "all x hours", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + (sensor_item.last_run ?? DateTime.Now.ToString(CultureInfo.InvariantCulture)));
 
                         // Check if last run is empty, if so set it to now
                         if (String.IsNullOrEmpty(sensor_item.last_run))
                         {
-                            sensor_item.last_run = DateTime.Now.ToString();
+                            sensor_item.last_run = DateTime.Now.ToString(CultureInfo.InvariantCulture);
                             string updated_sensor_json = JsonSerializer.Serialize(sensor_item);
                             File.WriteAllText(sensor, updated_sensor_json);
                         }
 
-                        if (DateTime.Parse(sensor_item.last_run) < DateTime.Now - TimeSpan.FromHours(sensor_item.time_scheduler_hours))
+                        DateTime lastRun = DateTime.Parse(sensor_item.last_run, CultureInfo.InvariantCulture);
+                        if (lastRun <= DateTime.Now - TimeSpan.FromHours(sensor_item.time_scheduler_hours))
                             execute = true;
 
-                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "all x hours", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + DateTime.Parse(sensor_item.last_run) + " execute: " + execute.ToString());
+                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "all x hours", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + lastRun + " execute: " + execute.ToString());
                     }
                     else if (sensor_item.time_scheduler_type == 5) // date, all x seconds
                     {
@@ -366,155 +424,108 @@ namespace Global.Sensors
                     }
                     else if (sensor_item.time_scheduler_type == 8) // following days at X time
                     {
-                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "following days at X time", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + DateTime.Parse(sensor_item.last_run ?? DateTime.Now.ToString()));
+                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "following days at X time", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + (sensor_item.last_run ?? DateTime.Now.ToString(CultureInfo.InvariantCulture)));
 
-                        DateTime scheduledDateTime = DateTime.ParseExact($"{sensor_item.time_scheduler_date.Split(' ')[0]} {sensor_item.time_scheduler_time}", "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+                        DateTime scheduledTime = DateTime.ParseExact(sensor_item.time_scheduler_time, "HH:mm:ss", CultureInfo.InvariantCulture);
 
-                        // Check if last run is empty, if so, subsract 24 hours from scheduled time to trigger the execution
+                        // Check if last run is empty, if so set it to a time in the past to trigger initial execution
                         if (String.IsNullOrEmpty(sensor_item.last_run))
                         {
-                            sensor_item.last_run = (scheduledDateTime - TimeSpan.FromHours(24)).ToString();
+                            sensor_item.last_run = DateTime.Now.AddDays(-1).ToString(CultureInfo.InvariantCulture);
                             string updated_sensor_json = JsonSerializer.Serialize(sensor_item);
                             File.WriteAllText(sensor, updated_sensor_json);
                         }
 
-                        DateTime lastRunDateTime = DateTime.Parse(sensor_item.last_run);
+                        DateTime lastRunDateTime = DateTime.Parse(sensor_item.last_run, CultureInfo.InvariantCulture);
 
-                        if (DateTime.Now.DayOfWeek.ToString() == "Monday" && sensor_item.time_scheduler_monday && DateTime.Now.TimeOfDay >= scheduledDateTime.TimeOfDay && lastRunDateTime < scheduledDateTime)
+                        // Check if current time is past the scheduled time and we haven't run today yet
+                        bool shouldRunToday = DateTime.Now.TimeOfDay >= scheduledTime.TimeOfDay && lastRunDateTime.Date < DateTime.Now.Date;
+
+                        // Use helper method to check weekday
+                        if (ShouldRunToday(sensor_item) && shouldRunToday)
                             execute = true;
 
-                        if (DateTime.Now.DayOfWeek.ToString() == "Tuesday" && sensor_item.time_scheduler_tuesday && DateTime.Now.TimeOfDay >= scheduledDateTime.TimeOfDay && lastRunDateTime < scheduledDateTime)
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Wednesday" && sensor_item.time_scheduler_wednesday && DateTime.Now.TimeOfDay >= scheduledDateTime.TimeOfDay && lastRunDateTime < scheduledDateTime)
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Thursday" && sensor_item.time_scheduler_thursday && DateTime.Now.TimeOfDay >= scheduledDateTime.TimeOfDay && lastRunDateTime < scheduledDateTime)
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Friday" && sensor_item.time_scheduler_friday && DateTime.Now.TimeOfDay >= scheduledDateTime.TimeOfDay && lastRunDateTime < scheduledDateTime)
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Saturday" && sensor_item.time_scheduler_saturday && DateTime.Now.TimeOfDay >= scheduledDateTime.TimeOfDay && lastRunDateTime < scheduledDateTime)
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Sunday" && sensor_item.time_scheduler_sunday && DateTime.Now.TimeOfDay >= scheduledDateTime.TimeOfDay && lastRunDateTime < scheduledDateTime)
-                            execute = true;
-
-                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "following days at X time", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + DateTime.Parse(sensor_item.last_run) + " execute: " + execute.ToString());
+                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "following days at X time", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + lastRunDateTime + " execute: " + execute.ToString());
                     }
                     else if (sensor_item.time_scheduler_type == 9) // following days, x seconds
                     {
-                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "following days, x seconds", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + DateTime.Parse(sensor_item.last_run ?? DateTime.Now.ToString()));
+                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "following days, x seconds", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + (sensor_item.last_run ?? DateTime.Now.ToString(CultureInfo.InvariantCulture)));
 
                         // Check if last run is empty, if so set it to now
                         if (String.IsNullOrEmpty(sensor_item.last_run))
                         {
-                            sensor_item.last_run = DateTime.Now.ToString();
+                            sensor_item.last_run = DateTime.Now.ToString(CultureInfo.InvariantCulture);
                             string updated_sensor_json = JsonSerializer.Serialize(sensor_item);
                             File.WriteAllText(sensor, updated_sensor_json);
                         }
 
-                        if (DateTime.Now.DayOfWeek.ToString() == "Monday" && sensor_item.time_scheduler_monday && DateTime.Parse(sensor_item.last_run) <= DateTime.Now - TimeSpan.FromSeconds(sensor_item.time_scheduler_seconds))
+                        DateTime lastRun = DateTime.Parse(sensor_item.last_run, CultureInfo.InvariantCulture);
+
+                        // Check if it's a valid day AND the interval has passed
+                        if (ShouldRunToday(sensor_item) && lastRun <= DateTime.Now - TimeSpan.FromSeconds(sensor_item.time_scheduler_seconds))
                             execute = true;
 
-                        if (DateTime.Now.DayOfWeek.ToString() == "Tuesday" && sensor_item.time_scheduler_tuesday && DateTime.Parse(sensor_item.last_run) <= DateTime.Now - TimeSpan.FromSeconds(sensor_item.time_scheduler_seconds))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Wednesday" && sensor_item.time_scheduler_wednesday && DateTime.Parse(sensor_item.last_run) <= DateTime.Now - TimeSpan.FromSeconds(sensor_item.time_scheduler_seconds))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Thursday" && sensor_item.time_scheduler_thursday && DateTime.Parse(sensor_item.last_run) <= DateTime.Now - TimeSpan.FromSeconds(sensor_item.time_scheduler_seconds))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Friday" && sensor_item.time_scheduler_friday && DateTime.Parse(sensor_item.last_run) <= DateTime.Now - TimeSpan.FromSeconds(sensor_item.time_scheduler_seconds))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Saturday" && sensor_item.time_scheduler_saturday && DateTime.Parse(sensor_item.last_run) <= DateTime.Now - TimeSpan.FromSeconds(sensor_item.time_scheduler_seconds))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Sunday" && sensor_item.time_scheduler_sunday && DateTime.Parse(sensor_item.last_run) <= DateTime.Now - TimeSpan.FromSeconds(sensor_item.time_scheduler_seconds))
-                            execute = true;
-
-                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "following days, x seconds", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + DateTime.Parse(sensor_item.last_run) + " execute: " + execute.ToString());
+                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "following days, x seconds", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + lastRun + " execute: " + execute.ToString());
                     }
                     else if (sensor_item.time_scheduler_type == 10) // following days, x minutes
                     {
+                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "following days, x minutes", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + (sensor_item.last_run ?? DateTime.Now.ToString(CultureInfo.InvariantCulture)));
+
                         // Check if last run is empty, if so set it to now
                         if (String.IsNullOrEmpty(sensor_item.last_run))
-                            sensor_item.last_run = DateTime.Now.ToString();
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Monday" && sensor_item.time_scheduler_monday && DateTime.Parse(sensor_item.last_run) < DateTime.Now - TimeSpan.FromMinutes(sensor_item.time_scheduler_minutes))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Tuesday" && sensor_item.time_scheduler_tuesday && DateTime.Parse(sensor_item.last_run) < DateTime.Now - TimeSpan.FromMinutes(sensor_item.time_scheduler_minutes))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Wednesday" && sensor_item.time_scheduler_wednesday && DateTime.Parse(sensor_item.last_run) < DateTime.Now - TimeSpan.FromMinutes(sensor_item.time_scheduler_minutes))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Thursday" && sensor_item.time_scheduler_thursday && DateTime.Parse(sensor_item.last_run) < DateTime.Now - TimeSpan.FromMinutes(sensor_item.time_scheduler_minutes))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Friday" && sensor_item.time_scheduler_friday && DateTime.Parse(sensor_item.last_run) < DateTime.Now - TimeSpan.FromMinutes(sensor_item.time_scheduler_minutes))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Saturday" && sensor_item.time_scheduler_saturday && DateTime.Parse(sensor_item.last_run) < DateTime.Now - TimeSpan.FromMinutes(sensor_item.time_scheduler_minutes))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Sunday" && sensor_item.time_scheduler_sunday && DateTime.Parse(sensor_item.last_run) < DateTime.Now - TimeSpan.FromMinutes(sensor_item.time_scheduler_minutes))
-                            execute = true;
-
-                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "following days, x minutes", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + DateTime.Parse(sensor_item.last_run) + " execute: " + execute.ToString());
-                    }
-                    else if (sensor_item.time_scheduler_type == 11) // following days, x hours
-                    {
-                        DateTime scheduledDateTime = DateTime.ParseExact($"{sensor_item.time_scheduler_date.Split(' ')[0]} {sensor_item.time_scheduler_time}", "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture);
-
-                        // Check if last run is empty, if so, subsract 24 hours from scheduled time to trigger the execution
-                        if (String.IsNullOrEmpty(sensor_item.last_run))
                         {
-                            sensor_item.last_run = (scheduledDateTime - TimeSpan.FromHours(24)).ToString();
+                            sensor_item.last_run = DateTime.Now.ToString(CultureInfo.InvariantCulture);
                             string updated_sensor_json = JsonSerializer.Serialize(sensor_item);
                             File.WriteAllText(sensor, updated_sensor_json);
                         }
 
-                        DateTime lastRunDateTime = DateTime.Parse(sensor_item.last_run);
+                        DateTime lastRun = DateTime.Parse(sensor_item.last_run, CultureInfo.InvariantCulture);
 
-                        if (DateTime.Now.DayOfWeek.ToString() == "Monday" && sensor_item.time_scheduler_monday && DateTime.Parse(sensor_item.last_run) < DateTime.Now - TimeSpan.FromHours(sensor_item.time_scheduler_hours))
+                        // Check if it's a valid day AND the interval has passed
+                        if (ShouldRunToday(sensor_item) && lastRun <= DateTime.Now - TimeSpan.FromMinutes(sensor_item.time_scheduler_minutes))
                             execute = true;
 
-                        if (DateTime.Now.DayOfWeek.ToString() == "Tuesday" && sensor_item.time_scheduler_tuesday && DateTime.Parse(sensor_item.last_run) < DateTime.Now - TimeSpan.FromHours(sensor_item.time_scheduler_hours))
+                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "following days, x minutes", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + lastRun + " execute: " + execute.ToString());
+                    }
+                    else if (sensor_item.time_scheduler_type == 11) // following days, x hours
+                    {
+                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "following days, x hours", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + (sensor_item.last_run ?? DateTime.Now.ToString(CultureInfo.InvariantCulture)));
+
+                        // Check if last run is empty, if so set it to now
+                        if (String.IsNullOrEmpty(sensor_item.last_run))
+                        {
+                            sensor_item.last_run = DateTime.Now.ToString(CultureInfo.InvariantCulture);
+                            string updated_sensor_json = JsonSerializer.Serialize(sensor_item);
+                            File.WriteAllText(sensor, updated_sensor_json);
+                        }
+
+                        DateTime lastRun = DateTime.Parse(sensor_item.last_run, CultureInfo.InvariantCulture);
+
+                        // Check if it's a valid day AND the interval has passed
+                        if (ShouldRunToday(sensor_item) && lastRun <= DateTime.Now - TimeSpan.FromHours(sensor_item.time_scheduler_hours))
                             execute = true;
 
-                        if (DateTime.Now.DayOfWeek.ToString() == "Wednesday" && sensor_item.time_scheduler_wednesday && DateTime.Parse(sensor_item.last_run) < DateTime.Now - TimeSpan.FromHours(sensor_item.time_scheduler_hours))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Thursday" && sensor_item.time_scheduler_thursday && DateTime.Parse(sensor_item.last_run) < DateTime.Now - TimeSpan.FromHours(sensor_item.time_scheduler_hours))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Friday" && sensor_item.time_scheduler_friday && DateTime.Parse(sensor_item.last_run) < DateTime.Now - TimeSpan.FromHours(sensor_item.time_scheduler_hours))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Saturday" && sensor_item.time_scheduler_saturday && DateTime.Parse(sensor_item.last_run) < DateTime.Now - TimeSpan.FromHours(sensor_item.time_scheduler_hours))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Sunday" && sensor_item.time_scheduler_sunday && DateTime.Parse(sensor_item.last_run) < DateTime.Now - TimeSpan.FromHours(sensor_item.time_scheduler_hours))
-                            execute = true;
-
-                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "following days, x hours", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + DateTime.Parse(sensor_item.last_run) + " execute: " + execute.ToString());
+                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "following days, x hours", "name: " + sensor_item.name + " id: " + sensor_item.id + " last_run: " + lastRun + " execute: " + execute.ToString());
                     }
 
                     // Execute if needed
                     if (execute)
                     {
+                        // Store the old last_run value in case we need to rollback
+                        string previous_last_run = sensor_item.last_run;
+                        
+                        // Update last run IMMEDIATELY to prevent race conditions (before executing the sensor)
+                        var startTime = DateTime.Now;
+                        sensor_item.last_run = startTime.ToString(CultureInfo.InvariantCulture);
+                        WriteEncryptedSensor(sensor, sensor_item);
+
                         bool triggered = false;
                         var endTime = DateTime.Now;
 
                         string action_result = String.Empty;
 
                         if (sensor_item.action_treshold_max != 1)
-                            action_result = "[" + DateTime.Now.ToString() + "]";
+                            action_result = "[" + DateTime.Now.ToString(CultureInfo.InvariantCulture) + "]";
 
                         string details = String.Empty;
                         string additional_details = String.Empty;
@@ -525,7 +536,9 @@ namespace Global.Sensors
 
                         int resource_usage = 0;
 
-                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "Execute sensor", "name: " + sensor_item.name + " id: " + sensor_item.id);
+                        try
+                        {
+                            Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "Execute sensor", "name: " + sensor_item.name + " id: " + sensor_item.id);
 
                         if (sensor_item.category == 0) // utilization 
                         {
@@ -1554,7 +1567,6 @@ namespace Global.Sensors
                         }
                         else if (sensor_item.category == 1) // Windows Eventlog
                         {
-                            DateTime startTime = DateTime.Parse(sensor_item.last_run);
                             bool event_log_existing = false;
                             bool action_already_executed = false; // prevents the action from being executed multiple times
 
@@ -2491,12 +2503,23 @@ namespace Global.Sensors
                             }
                         }
 
-                        // Update last run
-                        sensor_item.last_run = endTime.ToString();
-                        string updated_sensor_json = JsonSerializer.Serialize(sensor_item);
-                        File.WriteAllText(sensor, updated_sensor_json);
+                            // Sensor execution successful
+                            Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "Execution finished successfully", "name: " + sensor_item.name + " id: " + sensor_item.id);
+                        }
+                        catch (Exception ex)
+                        {
+                            // Sensor failed - rollback last_run to allow retry on next scheduler run
+                            sensor_item.last_run = previous_last_run;
+                            WriteEncryptedSensor(sensor, sensor_item);
 
-                        Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "Execution finished", "name: " + sensor_item.name + " id: " + sensor_item.id);
+                            Logging.Error("Sensors.Time_Scheduler.Check_Execution", "Sensor execution failed (rolled back last_run)", "name: " + sensor_item.name + " id: " + sensor_item.id + " error: " + ex.ToString());
+
+                            // Insert error event
+                            if (Configuration.Agent.language == "en-US")
+                                Events.Logger.Insert_Event("2", "Sensor", sensor_item.name + " failed", "Sensor: " + sensor_item.name + " (" + sensor_item.description + ") " + Environment.NewLine + Environment.NewLine + "Error: " + Environment.NewLine + ex.ToString(), String.Empty, 1, 0);
+                            else if (Configuration.Agent.language == "de-DE")
+                                Events.Logger.Insert_Event("2", "Sensor", sensor_item.name + " fehlgeschlagen", "Sensor: " + sensor_item.name + " (" + sensor_item.description + ") " + Environment.NewLine + Environment.NewLine + "Fehler: " + Environment.NewLine + ex.ToString(), String.Empty, 1, 1);
+                        }
                     }
                     else
                         Logging.Sensors("Sensors.Time_Scheduler.Check_Execution", "Sensor will not be executed", "name: " + sensor_item.name + " id: " + sensor_item.id);

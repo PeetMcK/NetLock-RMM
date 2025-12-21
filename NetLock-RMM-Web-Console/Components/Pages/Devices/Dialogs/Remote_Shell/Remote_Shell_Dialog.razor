@@ -366,6 +366,14 @@
                 await InvokeAsync(() =>
                 {
                     remote_shell_command_output = DateTime.Now.ToString("dd.MM.yyyy hh:mm:ss") + System.Environment.NewLine + command + System.Environment.NewLine + "--------------END--------------" + System.Environment.NewLine + remote_shell_command_output;
+                    
+                    // if nlock seperator, remove everything before it and including it
+                    if (remote_shell_command_output.Contains(">>nlocksep<<"))
+                    {
+                        int index = remote_shell_command_output.IndexOf(">>nlocksep<<");
+                        remote_shell_command_output = remote_shell_command_output.Substring(index + ">>nlocksep<<".Length).TrimStart();
+                    }
+
                     remote_shell_command_output_editor.SetValue(remote_shell_command_output);
 
                     loading_overlay = false;

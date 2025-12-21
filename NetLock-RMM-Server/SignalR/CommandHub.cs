@@ -482,7 +482,7 @@ namespace NetLock_RMM_Server.SignalR
 
                 Logging.Handler.Debug("SignalR CommandHub", "ReceiveClientResponse", $"Admin client ID: {admin_client_id} type: {type}");
 
-                // insert result into history table
+                // insert result into history table and add device_name for remote shell commands response
                 if (type == 0) // remote shell
                 {
                     // Verbesserte Datenbankverbindung mit using-Statement für automatisches Schließen
@@ -512,6 +512,9 @@ namespace NetLock_RMM_Server.SignalR
                         }
                         // Kein finally-Block notwendig, da using-Statement
                     }
+                                
+                    // Add device_id to the response for remote shell commands to identify the device in the webconsole response for bulk executin view
+                    response = device_id + ">>nlocksep<<" + response;
                 }
 
                 // Check if the admin client ID is empty or null and return if it is

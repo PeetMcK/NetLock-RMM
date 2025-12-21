@@ -314,7 +314,7 @@ if (Roles.Update || Roles.Trust)
 {
     if (Members_Portal.IsApiEnabled)
     {
-        //OSSCH_START d280bfe7-0f11-4b95-8af8-7b2e4b499f77 //OSSCH_END
+        //OSSCH_START 15886b74-e0ca-4616-9f5c-4d58972ba9d4 //OSSCH_END
         Console.WriteLine("----------------------------------------");
     }
 }
@@ -415,13 +415,13 @@ app.MapGet("/test", async context =>
 // Members Portal Api Cloud Version Endpoints
 if (Members_Portal.IsApiEnabled && Members_Portal.IsCloudEnabled)
 {
-    //OSSCH_START 683728b3-80b7-4bcc-94f1-0cbb252d9ae7 //OSSCH_END
+    //OSSCH_START ed65df36-4a35-449b-a902-82ae918dd84b //OSSCH_END
 }
 
 if (Members_Portal.IsApiEnabled && Members_Portal.IsCloudEnabled)
 {
     // Credentials update endpoint
-    //OSSCH_START cdbfbc49-3360-4f3a-be53-39572e408197 //OSSCH_END
+    //OSSCH_START 92a97071-6098-4f73-b002-88c5ab80b035 //OSSCH_END
 }
 
 //Check Version
@@ -1380,7 +1380,7 @@ app.MapPost("/admin/files/upload/device", async (HttpContext context) =>
 // NetLock files download private - GUID, used for update server & trust server
 if (role_update || role_trust)
 {
-    //OSSCH_START e08ebd78-eb8b-4395-a008-2f024595abe5 //OSSCH_END
+    //OSSCH_START b08f9824-349f-4fca-b4c7-d6b2bec8ac16 //OSSCH_END
 }
 
 /*

@@ -434,6 +434,10 @@
                 type_converted = type_display;
 
             int script_id = await Get_Script_ID(script);
+            
+            // Convert datetime to our format yyyy-MM-dd HH:mm:ss
+            time_scheduler_date = time_scheduler_date?.Date;
+            string date_formatted = time_scheduler_date?.ToString("yyyy-MM-dd") ?? String.Empty;
 
             Job job_json = new Job
                 {
@@ -453,7 +457,7 @@
                     time_scheduler_minutes = time_scheduler_minutes,
                     time_scheduler_hours = time_scheduler_hours,
                     time_scheduler_time = time_scheduler_time.ToString(),
-                    time_scheduler_date = time_scheduler_date.ToString(),
+                    time_scheduler_date = date_formatted,
                     time_scheduler_monday = time_scheduler_monday,
                     time_scheduler_tuesday = time_scheduler_tuesday,
                     time_scheduler_wednesday = time_scheduler_wednesday,

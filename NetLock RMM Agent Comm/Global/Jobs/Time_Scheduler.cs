@@ -41,6 +41,45 @@ namespace Global.Jobs
             public bool time_scheduler_sunday { get; set; }
         }
 
+        // Helper method to check if job should run today based on weekday settings
+        private static bool ShouldRunToday(Job job)
+        {
+            switch (DateTime.Now.DayOfWeek)
+            {
+                case DayOfWeek.Monday:
+                    return job.time_scheduler_monday;
+                case DayOfWeek.Tuesday:
+                    return job.time_scheduler_tuesday;
+                case DayOfWeek.Wednesday:
+                    return job.time_scheduler_wednesday;
+                case DayOfWeek.Thursday:
+                    return job.time_scheduler_thursday;
+                case DayOfWeek.Friday:
+                    return job.time_scheduler_friday;
+                case DayOfWeek.Saturday:
+                    return job.time_scheduler_saturday;
+                case DayOfWeek.Sunday:
+                    return job.time_scheduler_sunday;
+                default:
+                    return false;
+            }
+        }
+
+        // Helper method to write encrypted job to disk
+        private static void WriteEncryptedJob(string filePath, Job job)
+        {
+            try
+            {
+                string job_json = JsonSerializer.Serialize(job);
+                string encrypted_json = Encryption.String_Encryption.Encrypt(job_json, Application_Settings.NetLock_Local_Encryption_Key);
+                File.WriteAllText(filePath, encrypted_json);
+            }
+            catch (Exception e)
+            {
+                Logging.Error("Jobs.Time_Scheduler.WriteEncryptedJob", "Error writing encrypted job", e.ToString());
+            }
+        }
+
         public static void Check_Execution()
         {
             Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "Check job execution", "Start");
@@ -72,18 +111,24 @@ namespace Global.Jobs
                     if (!File.Exists(job_path))
                     {
                         Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "Check if job exists on disk", "false");
-                        File.WriteAllText(job_path, job_json);
+                        // Encrypt job JSON before writing
+                        string encrypted_job_json = Encryption.String_Encryption.Encrypt(job_json, Application_Settings.NetLock_Local_Encryption_Key);
+                        File.WriteAllText(job_path, encrypted_job_json);
                     }
 
                     // Check if script has changed
                     if (File.Exists(job_path))
                     {
-                        string existing_job_json = File.ReadAllText(job_path);
+                        // Decrypt job JSON after reading
+                        string encrypted_existing_job_json = File.ReadAllText(job_path);
+                        string existing_job_json = Encryption.String_Encryption.Decrypt(encrypted_existing_job_json, Application_Settings.NetLock_Local_Encryption_Key);
                         Job existing_job = JsonSerializer.Deserialize<Job>(existing_job_json);
                         if (existing_job.script != job.script)
                         {
                             Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "Job script has changed. Updating it.", "Job: " + job.name + " Job id: " + job.id);
-                            File.WriteAllText(job_path, job_json);
+                            // Encrypt job JSON before writing
+                            string encrypted_job_json = Encryption.String_Encryption.Encrypt(job_json, Application_Settings.NetLock_Local_Encryption_Key);
+                            File.WriteAllText(job_path, encrypted_job_json);
                         }
                     }
                 }
@@ -117,8 +162,17 @@ namespace Global.Jobs
                 // Now read & consume each job
                 foreach (var job in Directory.GetFiles(Application_Paths.program_data_jobs))
                 {
-                    string job_json = File.ReadAllText(job);
+                    // Decrypt job JSON after reading
+                    string encrypted_job_json = File.ReadAllText(job);
+                    string job_json = Encryption.String_Encryption.Decrypt(encrypted_job_json, Application_Settings.NetLock_Local_Encryption_Key);
                     Job job_item = JsonSerializer.Deserialize<Job>(job_json);
+
+                    // Null-check after deserialization
+                    if (job_item == null)
+                    {
+                        Logging.Error("Jobs.Time_Scheduler.Check_Execution", "Failed to deserialize job", "Job file: " + job);
+                        continue;
+                    }
 
                     Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "Check job execution", "Job: " + job_item.name + " time_scheduler_type: " + job_item.time_scheduler_type);
 
@@ -140,8 +194,7 @@ namespace Global.Jobs
                         if (String.IsNullOrEmpty(job_item.last_run))
                         {
                             job_item.last_run = DateTime.Now.ToString();
-                            string updated_job_json = JsonSerializer.Serialize(job_item);
-                            File.WriteAllText(job, updated_job_json);
+                            WriteEncryptedJob(job, job_item);
                         }
 
                         if (DateTime.Parse(job_item.last_run) < os_up_time)
@@ -157,8 +210,7 @@ namespace Global.Jobs
                         if (String.IsNullOrEmpty(job_item.last_run))
                         {
                             job_item.last_run = (scheduledDateTime - TimeSpan.FromHours(24)).ToString();
-                            string updated_job_json = JsonSerializer.Serialize(job_item);
-                            File.WriteAllText(job, updated_job_json);
+                            WriteEncryptedJob(job, job_item);
                         }
 
                         DateTime lastRunDateTime = DateTime.Parse(job_item.last_run);
@@ -176,8 +228,7 @@ namespace Global.Jobs
                         if (String.IsNullOrEmpty(job_item.last_run))
                         {
                             job_item.last_run = DateTime.Now.ToString();
-                            string updated_job_json = JsonSerializer.Serialize(job_item);
-                            File.WriteAllText(job, updated_job_json);
+                            WriteEncryptedJob(job, job_item);
                         }
 
                         if (DateTime.Parse(job_item.last_run) <= DateTime.Now - TimeSpan.FromSeconds(job_item.time_scheduler_seconds))
@@ -187,37 +238,37 @@ namespace Global.Jobs
                     }
                     else if (job_item.time_scheduler_type == 3) // all x minutes
                     {
-                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "all x minutes", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + DateTime.Parse(job_item.last_run ?? DateTime.Now.ToString()));
+                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "all x minutes", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + (job_item.last_run ?? DateTime.Now.ToString(CultureInfo.InvariantCulture)));
 
                         // Check if last run is empty, if so set it to now
                         if (String.IsNullOrEmpty(job_item.last_run))
                         {
-                            job_item.last_run = DateTime.Now.ToString();
-                            string updated_job_json = JsonSerializer.Serialize(job_item);
-                            File.WriteAllText(job, updated_job_json);
+                            job_item.last_run = DateTime.Now.ToString(CultureInfo.InvariantCulture);
+                            WriteEncryptedJob(job, job_item);
                         }
 
-                        if (DateTime.Parse(job_item.last_run) < DateTime.Now - TimeSpan.FromMinutes(job_item.time_scheduler_minutes))
+                        DateTime lastRun = DateTime.Parse(job_item.last_run, CultureInfo.InvariantCulture);
+                        if (lastRun <= DateTime.Now - TimeSpan.FromMinutes(job_item.time_scheduler_minutes))
                             execute = true;
 
-                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "all x minutes", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + DateTime.Parse(job_item.last_run) + " execute: " + execute.ToString());
+                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "all x minutes", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + lastRun + " execute: " + execute.ToString());
                     }
                     else if (job_item.time_scheduler_type == 4) // all x hours
                     {
-                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "all x hours", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + DateTime.Parse(job_item.last_run ?? DateTime.Now.ToString()));
+                        Logging.Jobs("Sensors.Time_Scheduler.Check_Execution", "all x hours", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + (job_item.last_run ?? DateTime.Now.ToString(CultureInfo.InvariantCulture)));
 
                         // Check if last run is empty, if so set it to now
                         if (String.IsNullOrEmpty(job_item.last_run))
                         {
-                            job_item.last_run = DateTime.Now.ToString();
-                            string updated_job_json = JsonSerializer.Serialize(job_item);
-                            File.WriteAllText(job, updated_job_json);
+                            job_item.last_run = DateTime.Now.ToString(CultureInfo.InvariantCulture);
+                            WriteEncryptedJob(job, job_item);
                         }
 
-                        if (DateTime.Parse(job_item.last_run) < DateTime.Now - TimeSpan.FromHours(job_item.time_scheduler_hours))
+                        DateTime lastRun = DateTime.Parse(job_item.last_run, CultureInfo.InvariantCulture);
+                        if (lastRun <= DateTime.Now - TimeSpan.FromHours(job_item.time_scheduler_hours))
                             execute = true;
 
-                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "all x hours", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + DateTime.Parse(job_item.last_run) + " execute: " + execute.ToString());
+                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "all x hours", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + lastRun + " execute: " + execute.ToString());
                     }
                     else if (job_item.time_scheduler_type == 5) // date, all x seconds
                     {
@@ -272,180 +323,145 @@ namespace Global.Jobs
                     }
                     else if (job_item.time_scheduler_type == 8) // following days at X time
                     {
-                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "following days at X time", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + DateTime.Parse(job_item.last_run ?? DateTime.Now.ToString()));
+                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "following days at X time", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + (job_item.last_run ?? DateTime.Now.ToString(CultureInfo.InvariantCulture)));
 
-                        DateTime scheduledDateTime = DateTime.ParseExact($"{job_item.time_scheduler_date.Split(' ')[0]} {job_item.time_scheduler_time}", "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+                        DateTime scheduledTime = DateTime.ParseExact(job_item.time_scheduler_time, "HH:mm:ss", CultureInfo.InvariantCulture);
 
-                        // Check if last run is empty, if so, subsract 24 hours from scheduled time to trigger the execution
+                        // Check if last run is empty, if so set it to a time in the past to trigger initial execution
                         if (String.IsNullOrEmpty(job_item.last_run))
                         {
-                            job_item.last_run = (scheduledDateTime - TimeSpan.FromHours(24)).ToString();
+                            job_item.last_run = DateTime.Now.AddDays(-1).ToString(CultureInfo.InvariantCulture);
                             string updated_job_json = JsonSerializer.Serialize(job_item);
                             File.WriteAllText(job, updated_job_json);
                         }
 
-                        DateTime lastRunDateTime = DateTime.Parse(job_item.last_run);
+                        DateTime lastRunDateTime = DateTime.Parse(job_item.last_run, CultureInfo.InvariantCulture);
 
-                        if (DateTime.Now.DayOfWeek.ToString() == "Monday" && job_item.time_scheduler_monday && DateTime.Now.TimeOfDay >= scheduledDateTime.TimeOfDay && lastRunDateTime < scheduledDateTime)
+                        // Check if current time is past the scheduled time and we haven't run today yet
+                        bool shouldRunToday = DateTime.Now.TimeOfDay >= scheduledTime.TimeOfDay && lastRunDateTime.Date < DateTime.Now.Date;
+
+                        // Use helper method to check weekday
+                        if (ShouldRunToday(job_item) && shouldRunToday)
                             execute = true;
 
-                        if (DateTime.Now.DayOfWeek.ToString() == "Tuesday" && job_item.time_scheduler_tuesday && DateTime.Now.TimeOfDay >= scheduledDateTime.TimeOfDay && lastRunDateTime < scheduledDateTime)
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Wednesday" && job_item.time_scheduler_wednesday && DateTime.Now.TimeOfDay >= scheduledDateTime.TimeOfDay && lastRunDateTime < scheduledDateTime)
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Thursday" && job_item.time_scheduler_thursday && DateTime.Now.TimeOfDay >= scheduledDateTime.TimeOfDay && lastRunDateTime < scheduledDateTime)
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Friday" && job_item.time_scheduler_friday && DateTime.Now.TimeOfDay >= scheduledDateTime.TimeOfDay && lastRunDateTime < scheduledDateTime)
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Saturday" && job_item.time_scheduler_saturday && DateTime.Now.TimeOfDay >= scheduledDateTime.TimeOfDay && lastRunDateTime < scheduledDateTime)
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Sunday" && job_item.time_scheduler_sunday && DateTime.Now.TimeOfDay >= scheduledDateTime.TimeOfDay && lastRunDateTime < scheduledDateTime)
-                            execute = true;
-
-                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "following days at X time", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + DateTime.Parse(job_item.last_run) + " execute: " + execute.ToString());
+                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "following days at X time", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + lastRunDateTime + " execute: " + execute.ToString());
                     }
                     else if (job_item.time_scheduler_type == 9) // following days, x seconds
                     {
-                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "following days, x seconds", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + DateTime.Parse(job_item.last_run ?? DateTime.Now.ToString()));
+                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "following days, x seconds", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + (job_item.last_run ?? DateTime.Now.ToString(CultureInfo.InvariantCulture)));
 
                         // Check if last run is empty, if so set it to now
                         if (String.IsNullOrEmpty(job_item.last_run))
                         {
-                            job_item.last_run = DateTime.Now.ToString();
+                            job_item.last_run = DateTime.Now.ToString(CultureInfo.InvariantCulture);
                             string updated_job_json = JsonSerializer.Serialize(job_item);
                             File.WriteAllText(job, updated_job_json);
                         }
 
-                        if (DateTime.Now.DayOfWeek.ToString() == "Monday" && job_item.time_scheduler_monday && DateTime.Parse(job_item.last_run) <= DateTime.Now - TimeSpan.FromSeconds(job_item.time_scheduler_seconds))
+                        DateTime lastRun = DateTime.Parse(job_item.last_run, CultureInfo.InvariantCulture);
+
+                        // Check if it's a valid day AND the interval has passed
+                        if (ShouldRunToday(job_item) && lastRun <= DateTime.Now - TimeSpan.FromSeconds(job_item.time_scheduler_seconds))
                             execute = true;
 
-                        if (DateTime.Now.DayOfWeek.ToString() == "Tuesday" && job_item.time_scheduler_tuesday && DateTime.Parse(job_item.last_run) <= DateTime.Now - TimeSpan.FromSeconds(job_item.time_scheduler_seconds))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Wednesday" && job_item.time_scheduler_wednesday && DateTime.Parse(job_item.last_run) <= DateTime.Now - TimeSpan.FromSeconds(job_item.time_scheduler_seconds))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Thursday" && job_item.time_scheduler_thursday && DateTime.Parse(job_item.last_run) <= DateTime.Now - TimeSpan.FromSeconds(job_item.time_scheduler_seconds))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Friday" && job_item.time_scheduler_friday && DateTime.Parse(job_item.last_run) <= DateTime.Now - TimeSpan.FromSeconds(job_item.time_scheduler_seconds))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Saturday" && job_item.time_scheduler_saturday && DateTime.Parse(job_item.last_run) <= DateTime.Now - TimeSpan.FromSeconds(job_item.time_scheduler_seconds))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Sunday" && job_item.time_scheduler_sunday && DateTime.Parse(job_item.last_run) <= DateTime.Now - TimeSpan.FromSeconds(job_item.time_scheduler_seconds))
-                            execute = true;
-
-                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "following days, x seconds", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + DateTime.Parse(job_item.last_run) + " execute: " + execute.ToString());
+                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "following days, x seconds", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + lastRun + " execute: " + execute.ToString());
                     }
                     else if (job_item.time_scheduler_type == 10) // following days, x minutes
                     {
+                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "following days, x minutes", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + (job_item.last_run ?? DateTime.Now.ToString(CultureInfo.InvariantCulture)));
+
                         // Check if last run is empty, if so set it to now
                         if (String.IsNullOrEmpty(job_item.last_run))
-                            job_item.last_run = DateTime.Now.ToString();
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Monday" && job_item.time_scheduler_monday && DateTime.Parse(job_item.last_run) < DateTime.Now - TimeSpan.FromMinutes(job_item.time_scheduler_minutes))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Tuesday" && job_item.time_scheduler_tuesday && DateTime.Parse(job_item.last_run) < DateTime.Now - TimeSpan.FromMinutes(job_item.time_scheduler_minutes))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Wednesday" && job_item.time_scheduler_wednesday && DateTime.Parse(job_item.last_run) < DateTime.Now - TimeSpan.FromMinutes(job_item.time_scheduler_minutes))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Thursday" && job_item.time_scheduler_thursday && DateTime.Parse(job_item.last_run) < DateTime.Now - TimeSpan.FromMinutes(job_item.time_scheduler_minutes))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Friday" && job_item.time_scheduler_friday && DateTime.Parse(job_item.last_run) < DateTime.Now - TimeSpan.FromMinutes(job_item.time_scheduler_minutes))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Saturday" && job_item.time_scheduler_saturday && DateTime.Parse(job_item.last_run) < DateTime.Now - TimeSpan.FromMinutes(job_item.time_scheduler_minutes))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Sunday" && job_item.time_scheduler_sunday && DateTime.Parse(job_item.last_run) < DateTime.Now - TimeSpan.FromMinutes(job_item.time_scheduler_minutes))
-                            execute = true;
-
-                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "following days, x minutes", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + DateTime.Parse(job_item.last_run) + " execute: " + execute.ToString());
-                    }
-                    else if (job_item.time_scheduler_type == 11) // following days, x hours
-                    {
-                        DateTime scheduledDateTime = DateTime.ParseExact($"{job_item.time_scheduler_date.Split(' ')[0]} {job_item.time_scheduler_time}", "dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture);
-
-                        // Check if last run is empty, if so, subsract 24 hours from scheduled time to trigger the execution
-                        if (String.IsNullOrEmpty(job_item.last_run))
                         {
-                            job_item.last_run = (scheduledDateTime - TimeSpan.FromHours(24)).ToString();
+                            job_item.last_run = DateTime.Now.ToString(CultureInfo.InvariantCulture);
                             string updated_job_json = JsonSerializer.Serialize(job_item);
                             File.WriteAllText(job, updated_job_json);
                         }
 
-                        DateTime lastRunDateTime = DateTime.Parse(job_item.last_run);
+                        DateTime lastRun = DateTime.Parse(job_item.last_run, CultureInfo.InvariantCulture);
 
-                        if (DateTime.Now.DayOfWeek.ToString() == "Monday" && job_item.time_scheduler_monday && DateTime.Parse(job_item.last_run) < DateTime.Now - TimeSpan.FromHours(job_item.time_scheduler_hours))
+                        // Check if it's a valid day AND the interval has passed
+                        if (ShouldRunToday(job_item) && lastRun <= DateTime.Now - TimeSpan.FromMinutes(job_item.time_scheduler_minutes))
                             execute = true;
 
-                        if (DateTime.Now.DayOfWeek.ToString() == "Tuesday" && job_item.time_scheduler_tuesday && DateTime.Parse(job_item.last_run) < DateTime.Now - TimeSpan.FromHours(job_item.time_scheduler_hours))
+                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "following days, x minutes", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + lastRun + " execute: " + execute.ToString());
+                    }
+                    else if (job_item.time_scheduler_type == 11) // following days, x hours
+                    {
+                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "following days, x hours", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + (job_item.last_run ?? DateTime.Now.ToString(CultureInfo.InvariantCulture)));
+
+                        // Check if last run is empty, if so set it to now
+                        if (String.IsNullOrEmpty(job_item.last_run))
+                        {
+                            job_item.last_run = DateTime.Now.ToString(CultureInfo.InvariantCulture);
+                            string updated_job_json = JsonSerializer.Serialize(job_item);
+                            File.WriteAllText(job, updated_job_json);
+                        }
+
+                        DateTime lastRun = DateTime.Parse(job_item.last_run, CultureInfo.InvariantCulture);
+
+                        // Check if it's a valid day AND the interval has passed
+                        if (ShouldRunToday(job_item) && lastRun <= DateTime.Now - TimeSpan.FromHours(job_item.time_scheduler_hours))
                             execute = true;
 
-                        if (DateTime.Now.DayOfWeek.ToString() == "Wednesday" && job_item.time_scheduler_wednesday && DateTime.Parse(job_item.last_run) < DateTime.Now - TimeSpan.FromHours(job_item.time_scheduler_hours))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Thursday" && job_item.time_scheduler_thursday && DateTime.Parse(job_item.last_run) < DateTime.Now - TimeSpan.FromHours(job_item.time_scheduler_hours))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Friday" && job_item.time_scheduler_friday && DateTime.Parse(job_item.last_run) < DateTime.Now - TimeSpan.FromHours(job_item.time_scheduler_hours))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Saturday" && job_item.time_scheduler_saturday && DateTime.Parse(job_item.last_run) < DateTime.Now - TimeSpan.FromHours(job_item.time_scheduler_hours))
-                            execute = true;
-
-                        if (DateTime.Now.DayOfWeek.ToString() == "Sunday" && job_item.time_scheduler_sunday && DateTime.Parse(job_item.last_run) < DateTime.Now - TimeSpan.FromHours(job_item.time_scheduler_hours))
-                            execute = true;
-
-                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "following days, x hours", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + DateTime.Parse(job_item.last_run) + " execute: " + execute.ToString());
+                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "following days, x hours", "name: " + job_item.name + " id: " + job_item.id + " last_run: " + lastRun + " execute: " + execute.ToString());
                     }
 
                     // Execute if needed
                     if (execute)
                     {
+                        // Store the old last_run value in case we need to rollback
+                        string previous_last_run = job_item.last_run;
+                        
+                        // Update last run IMMEDIATELY to prevent race conditions (before executing the job)
+                        job_item.last_run = DateTime.Now.ToString(CultureInfo.InvariantCulture);
+                        WriteEncryptedJob(job, job_item);
+
                         string result = String.Empty;
 
-                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "Execute job", "name: " + job_item.name + " id: " + job_item.id);
+                        try
+                        {
+                            Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "Execute job", "name: " + job_item.name + " id: " + job_item.id);
 
-                        //Execute job
-                        if (OperatingSystem.IsWindows())
-                            result = Windows.Helper.PowerShell.Execute_Script("Jobs.Time_Scheduler.Check_Execution (execute job) " + job_item.name, job_item.script);
-                        else if (OperatingSystem.IsLinux())
-                            result = Linux.Helper.Bash.Execute_Script("Jobs.Time_Scheduler.Check_Execution (execute job) " + job_item.name, true, job_item.script);
-                        else if (OperatingSystem.IsMacOS())
-                            result = MacOS.Helper.Zsh.Execute_Script("Jobs.Time_Scheduler.Check_Execution (execute job) " + job_item.name, true, job_item.script);
+                            //Execute job
+                            if (OperatingSystem.IsWindows())
+                                result = Windows.Helper.PowerShell.Execute_Script("Jobs.Time_Scheduler.Check_Execution (execute job) " + job_item.name, job_item.script);
+                            else if (OperatingSystem.IsLinux())
+                                result = Linux.Helper.Bash.Execute_Script("Jobs.Time_Scheduler.Check_Execution (execute job) " + job_item.name, true, job_item.script);
+                            else if (OperatingSystem.IsMacOS())
+                                result = MacOS.Helper.Zsh.Execute_Script("Jobs.Time_Scheduler.Check_Execution (execute job) " + job_item.name, true, job_item.script);
 
-                        // Insert event
-                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "Job executed", "name: " + job_item.name + " id: " + job_item.id + " result: " + result);
 
-                        // Check if job description is empty
-                        if (String.IsNullOrEmpty(job_item.description) && Configuration.Agent.language == "en-US")
-                            job_item.description = "No description";
-                        else if (String.IsNullOrEmpty(job_item.description) && Configuration.Agent.language == "de-DE")
-                            job_item.description = "Keine Beschreibung";
+                            // Insert event
+                            Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "Job executed", "name: " + job_item.name + " id: " + job_item.id + " result: " + result);
 
-                        if (Configuration.Agent.language == "en-US")
-                            Events.Logger.Insert_Event("0", "Job", job_item.name + " completed", "Job: " + job_item.name + " (" + job_item.description + ") " + Environment.NewLine + Environment.NewLine + "Result: " + Environment.NewLine + result, String.Empty, 1, 0);
-                        else if (Configuration.Agent.language == "de-DE")
-                            Events.Logger.Insert_Event("0", "Job", job_item.name + " fertiggestellt.", "Job: " + job_item.name + " (" + job_item.description + ") " + Environment.NewLine + Environment.NewLine + "Ergebnis: " + Environment.NewLine + result, String.Empty, 1, 1);
+                            // Check if job description is empty
+                            if (String.IsNullOrEmpty(job_item.description) && Configuration.Agent.language == "en-US")
+                                job_item.description = "No description";
+                            else if (String.IsNullOrEmpty(job_item.description) && Configuration.Agent.language == "de-DE")
+                                job_item.description = "Keine Beschreibung";
 
-                        // Update last run
-                        job_item.last_run = DateTime.Now.ToString();
-                        string updated_job_json = JsonSerializer.Serialize(job_item);
-                        File.WriteAllText(job, updated_job_json);
+                            if (Configuration.Agent.language == "en-US")
+                                Events.Logger.Insert_Event("0", "Job", job_item.name + " completed", "Job: " + job_item.name + " (" + job_item.description + ") " + Environment.NewLine + Environment.NewLine + "Result: " + Environment.NewLine + result, String.Empty, 1, 0);
+                            else if (Configuration.Agent.language == "de-DE")
+                                Events.Logger.Insert_Event("0", "Job", job_item.name + " fertiggestellt.", "Job: " + job_item.name + " (" + job_item.description + ") " + Environment.NewLine + Environment.NewLine + "Ergebnis: " + Environment.NewLine + result, String.Empty, 1, 1);
 
-                        Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "Execution finished", "name: " + job_item.name + " id: " + job_item.id);
+                            Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "Execution finished successfully", "name: " + job_item.name + " id: " + job_item.id);
+                        }
+                        catch (Exception ex)
+                        {
+                            // Job failed - rollback last_run to allow retry on next scheduler run
+                            job_item.last_run = previous_last_run;
+                            WriteEncryptedJob(job, job_item);
+
+                            Logging.Error("Jobs.Time_Scheduler.Check_Execution", "Job execution failed (rolled back last_run)", "name: " + job_item.name + " id: " + job_item.id + " error: " + ex.ToString());
+
+                            // Insert error event
+                            if (Configuration.Agent.language == "en-US")
+                                Events.Logger.Insert_Event("2", "Job", job_item.name + " failed", "Job: " + job_item.name + " (" + job_item.description + ") " + Environment.NewLine + Environment.NewLine + "Error: " + Environment.NewLine + ex.ToString(), String.Empty, 1, 0);
+                            else if (Configuration.Agent.language == "de-DE")
+                                Events.Logger.Insert_Event("2", "Job", job_item.name + " fehlgeschlagen", "Job: " + job_item.name + " (" + job_item.description + ") " + Environment.NewLine + Environment.NewLine + "Fehler: " + Environment.NewLine + ex.ToString(), String.Empty, 1, 1);
+                        }
                     }
                     else
                         Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "Job will not be executed", "name: " + job_item.name + " id: " + job_item.id);

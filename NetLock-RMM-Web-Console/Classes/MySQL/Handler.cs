@@ -600,7 +600,7 @@ namespace NetLock_RMM_Web_Console.Classes.MySQL
             return policy_name;
         }
 
-        private static async Task<string> GetDeviceNameById(string device_id)
+        public static async Task<string> GetDeviceNameById(string device_id)
         {
             MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
 
@@ -610,10 +610,12 @@ namespace NetLock_RMM_Web_Console.Classes.MySQL
 
                 MySqlCommand command = new MySqlCommand(query, conn);
                 command.Parameters.AddWithValue("@device_id", device_id);
-
+                
                 Logging.Handler.Debug("Agent.Windows.Policy_Handler.Get_Policy (automations)", "MySQL_Prepared_Query",
                     query);
 
+                await conn.OpenAsync();
+                
                 using (DbDataReader reader = await command.ExecuteReaderAsync())
                 {
                     if (reader.HasRows)
@@ -798,6 +800,8 @@ namespace NetLock_RMM_Web_Console.Classes.MySQL
         }
 
         // Get SSO Configuration from database
-        //OSSCH_START bc6bdd63-0750-4b2e-ad70-da9644d1d3d5 //OSSCH_END
+        //OSSCH_START d597e8db-ebb3-424b-ad91-7cbe752c0081 //OSSCH_END
+        
+        
     }
 }
