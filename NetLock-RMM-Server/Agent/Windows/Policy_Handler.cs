@@ -119,6 +119,8 @@ namespace NetLock_RMM_Server.Agent.Windows
             public bool? time_scheduler_sunday { get; set; }
 
             // NetLock notifications
+            public bool? suppress_notification { get; set; }
+            public bool? resolved_notification { get; set; }
             public bool? notifications_mail { get; set; }
             public bool? notifications_microsoft_teams { get; set; }
             public bool? notifications_telegram { get; set; }

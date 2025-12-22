@@ -19,6 +19,8 @@
 @inject IStringLocalizer<Components.Pages.Dashboard.Dashboard> Localizer
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
+@implements IDisposable
+
 <style>
 
     .selected-row-light {
@@ -513,6 +515,8 @@
 @code {
 
     private bool loading_overlay = false;
+    private System.Threading.Timer _eventsRefreshTimer;
+    private bool _isRefreshingEvents = false;
 
     private bool _isDarkMode;
 
@@ -569,6 +573,36 @@
         if (firstRender)
         {
             await AfterInitializedAsync();
+            
+            // Timer für automatische Aktualisierung der Events alle 60 Sekunden
+            _eventsRefreshTimer = new System.Threading.Timer(_ => 
+            {
+                if (!_isRefreshingEvents)
+                {
+                    _isRefreshingEvents = true;
+                    
+                    _ = InvokeAsync(async () =>
+                    {
+                        try
+                        {
+                            var updatedEvents = await Events_Load(true);
+                            events_mysql_data = updatedEvents;
+                            StateHasChanged();
+                            
+                            // Show subtle notification
+                            Classes.Helper.Notifications.WebConsole.AutoRefresh(Snackbar, "Events", updatedEvents.Count);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logging.Handler.Error("/dashboard -> Events Auto-Refresh", "Error", ex.ToString());
+                        }
+                        finally
+                        {
+                            _isRefreshingEvents = false;
+                        }
+                    });
+                }
+            }, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
         }
     }
 
@@ -762,7 +796,11 @@
             return new List<Events_Table>();
         }
 
-        loading_overlay = true;
+        // Nur loading_overlay anzeigen, wenn es NICHT vom Timer kommt
+        if (!bypass_events_load_counter)
+        {
+            loading_overlay = true;
+        }
 
         string query = "SELECT * FROM events WHERE `read` = 0 AND date >= @start_date AND date <= @end_date ORDER BY date DESC;";
 
@@ -836,7 +874,11 @@
         finally
         {
             await conn.CloseAsync();
-            loading_overlay = false;
+            // Nur loading_overlay deaktivieren, wenn es NICHT vom Timer kommt
+            if (!bypass_events_load_counter)
+            {
+                loading_overlay = false;
+            }
         }
     }
 
@@ -1215,4 +1257,9 @@
     }
 
     #endregion
+
+    public void Dispose()
+    {
+        _eventsRefreshTimer?.Dispose();
+    }
 }

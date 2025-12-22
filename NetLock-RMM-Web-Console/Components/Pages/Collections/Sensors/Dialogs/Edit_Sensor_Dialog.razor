@@ -664,7 +664,23 @@
         </div>
 
         <MudText Class="mt-5" Typo="Typo.h6">@Localizer["notifications"]</MudText>
+        
+        <div style="display: flex; align-items: center;">
+            <MudCheckBox Class="mt-3" T="bool" @bind-Value="suppress_notification" Label="Suppress notifications until issue is resolved" Color="Color.Primary" />
 
+            <MudTooltip Text="The sensor notification will only be sent once when the threshold is exceeded. It will not be sent again until the sensor detects the issue as resolved. This prevents multiple notifications for the same issue.">
+                <MudIconButton Class="ml-2 mt-3" Icon="@Icons.Material.Filled.Info" Variant="Variant.Text" Size="Size.Small" Color="Color.Default"></MudIconButton>
+            </MudTooltip>
+        </div>
+        
+        <div style="display: flex; align-items: center;">
+            <MudCheckBox Class="mt-3" T="bool" @bind-Value="resolved_notification" Label="Notify when resolved" Color="Color.Primary" />
+
+            <MudTooltip Text="Send a notification when the sensor issue is resolved.">
+                <MudIconButton Class="ml-2 mt-3" Icon="@Icons.Material.Filled.Info" Variant="Variant.Text" Size="Size.Small" Color="Color.Default"></MudIconButton>
+            </MudTooltip>
+        </div>
+        
         <div style="display: flex; align-items: center;">
             <MudCheckBox T="bool" @bind-Value="notifications_mail" Label="E-Mail" Color="Color.Primary" />
 
@@ -817,6 +833,8 @@
     private bool time_scheduler_sunday = false;
 
     // NetLock notifications
+    private bool suppress_notification = false;
+    private bool resolved_notification = false;
     private bool notifications_mail = false;
     private bool notifications_microsoft_teams = false;
     private bool notifications_telegram = false;
@@ -886,7 +904,9 @@
         public bool time_scheduler_saturday { get; set; }
         public bool time_scheduler_sunday { get; set; }
 
-        // NetLock notifications
+        // NetLock 
+        public bool suppress_notification { get; set; }
+        public bool resolved_notification { get; set; }
         public bool notifications_mail { get; set; }
         public bool notifications_microsoft_teams { get; set; }
         public bool notifications_telegram { get; set; }
@@ -1137,6 +1157,8 @@
             time_scheduler_sunday = _object.time_scheduler_sunday;
 
             // NetLock notifications
+            suppress_notification = _object.suppress_notification;
+            resolved_notification = _object.resolved_notification;
             notifications_mail = _object.notifications_mail;
             notifications_microsoft_teams = _object.notifications_microsoft_teams;
             notifications_telegram = _object.notifications_telegram;
@@ -1424,6 +1446,8 @@
                     time_scheduler_sunday = time_scheduler_sunday,
 
                 // NetLock notifications
+                    suppress_notification = suppress_notification,
+                    resolved_notification = resolved_notification,
                     notifications_mail = notifications_mail,
                     notifications_microsoft_teams = notifications_microsoft_teams,
                     notifications_telegram = notifications_telegram,

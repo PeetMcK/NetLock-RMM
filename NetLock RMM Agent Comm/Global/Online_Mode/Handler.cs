@@ -465,9 +465,10 @@ namespace Global.Online_Mode
 
                                 string new_server_config_json = JsonSerializer.Serialize(new_server_config, new JsonSerializerOptions { WriteIndented = true });
 
-                                // Write the new server config JSON to the file
-                                await File.WriteAllTextAsync(Application_Paths.program_data_server_config_json, new_server_config_json);
-                                await File.WriteAllTextAsync(Application_Paths.program_data_health_agent_server_config, new_server_config_json);
+                                // Write the new server config JSON to the file (encrypted)
+                                Initialization.Server_Config.SaveEncryptedConfig(new_server_config_json);
+                                Initialization.Server_Config.InvalidateCache();
+                                Initialization.Server_Config.SaveEncryptedHealthAgentConfig(new_server_config_json);
 
                                 Device_Worker.authorized = true;
                             }
@@ -495,9 +496,10 @@ namespace Global.Online_Mode
 
                                 string new_server_config_json = JsonSerializer.Serialize(new_server_config, new JsonSerializerOptions { WriteIndented = true });
 
-                                // Write the new server config JSON to the file
-                                await File.WriteAllTextAsync(Application_Paths.program_data_server_config_json, new_server_config_json);
-                                await File.WriteAllTextAsync(Application_Paths.program_data_health_agent_server_config, new_server_config_json);
+                                // Write the new server config JSON to the file (encrypted)
+                                Initialization.Server_Config.SaveEncryptedConfig(new_server_config_json);
+                                Initialization.Server_Config.InvalidateCache();
+                                Initialization.Server_Config.SaveEncryptedHealthAgentConfig(new_server_config_json);
 
                                 // Clear local information
                                 Device_Worker.processesJson = String.Empty;
@@ -666,8 +668,9 @@ namespace Global.Online_Mode
 
                                 string new_server_config_json = JsonSerializer.Serialize(new_server_config, new JsonSerializerOptions { WriteIndented = true });
 
-                                // Write the new server config JSON to the file
-                                File.WriteAllText(Application_Paths.program_data_server_config_json, new_server_config_json);
+                                // Write the new server config JSON to the file (encrypted)
+                                Initialization.Server_Config.SaveEncryptedConfig(new_server_config_json);
+                                Initialization.Server_Config.InvalidateCache();
 
                                 Device_Worker.authorized = true;
                             }
@@ -695,9 +698,10 @@ namespace Global.Online_Mode
 
                                 string new_server_config_json = JsonSerializer.Serialize(new_server_config, new JsonSerializerOptions { WriteIndented = true });
 
-                                // Write the new server config JSON to the file
-                                await File.WriteAllTextAsync(Application_Paths.program_data_server_config_json, new_server_config_json);
-                                await File.WriteAllTextAsync(Application_Paths.program_data_health_agent_server_config, new_server_config_json);
+                                // Write the new server config JSON to the file (encrypted)
+                                Initialization.Server_Config.SaveEncryptedConfig(new_server_config_json);
+                                Initialization.Server_Config.InvalidateCache();
+                                Initialization.Server_Config.SaveEncryptedHealthAgentConfig(new_server_config_json);
 
                                 // Clear local information
                                 Device_Worker.processesJson = String.Empty;
@@ -818,9 +822,10 @@ namespace Global.Online_Mode
 
                                 string new_server_config_json = JsonSerializer.Serialize(new_server_config, new JsonSerializerOptions { WriteIndented = true });
 
-                                // Write the new server config JSON to the file
-                                await File.WriteAllTextAsync(Application_Paths.program_data_server_config_json, new_server_config_json);
-                                await File.WriteAllTextAsync(Application_Paths.program_data_health_agent_server_config, new_server_config_json);
+                                // Write the new server config JSON to the file (encrypted)
+                                Initialization.Server_Config.SaveEncryptedConfig(new_server_config_json);
+                                Initialization.Server_Config.InvalidateCache();
+                                Initialization.Server_Config.SaveEncryptedHealthAgentConfig(new_server_config_json);
 
                                 // Clear local information
                                 Device_Worker.processesJson = String.Empty;

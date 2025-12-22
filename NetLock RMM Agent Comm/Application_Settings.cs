@@ -13,4 +13,4 @@ namespace NetLock_RMM_Agent_Comm
         public static string NetLock_Events_Database_String = @"Data Source=" + Application_Paths.program_data_netlock_events_database + ";";
         public static string NetLock_Local_Encryption_Key = "()TZ%/N)NZTG$/()4i59du4)";
     }
-} 
+}

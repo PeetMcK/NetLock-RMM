@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.IO;
 using System.Security.Principal;
 using Global.Helper;
+using Global.Encryption;
 using NetLock_RMM_Agent_Comm;
 using System.ComponentModel;
 using System.Runtime.Intrinsics.Wasm;
@@ -17,11 +18,144 @@ namespace Global.Initialization
 {
     internal class Server_Config
     {
+        // Cache for the decrypted JSON to avoid repeated decryption
+        private static string _cachedDecryptedJson = null;
+        private static DateTime _cacheTimestamp = DateTime.MinValue;
+        private static readonly TimeSpan CacheExpiration = TimeSpan.FromMinutes(5);
+
+        /// <summary>
+        /// Loads and decrypts the server config JSON. If the file is unencrypted, it will be converted and encrypted.
+        /// </summary>
+        private static string LoadAndDecryptConfig()
+        {
+            try
+            {
+                // Check cache validity
+                if (_cachedDecryptedJson != null && (DateTime.Now - _cacheTimestamp) < CacheExpiration)
+                {
+                    return _cachedDecryptedJson;
+                }
+
+                // Check if file exists
+                if (!File.Exists(Application_Paths.program_data_server_config_json))
+                {
+                    Logging.Error("Server_Config", "LoadAndDecryptConfig", "Server config file does not exist.");
+                    return null;
+                }
+
+                string fileContent = File.ReadAllText(Application_Paths.program_data_server_config_json);
+                
+                // Check if the content is already encrypted (Base64 string without JSON structure)
+                bool isEncrypted = !fileContent.TrimStart().StartsWith("{");
+                
+                if (isEncrypted)
+                {
+                    // File is encrypted, decrypt it
+                    Logging.Debug("Server_Config", "LoadAndDecryptConfig", "Config file is encrypted. Decrypting...");
+                    string decryptedJson = String_Encryption.Decrypt(fileContent, Application_Settings.NetLock_Local_Encryption_Key);
+                    
+                    // Update cache
+                    _cachedDecryptedJson = decryptedJson;
+                    _cacheTimestamp = DateTime.Now;
+                    
+                    return decryptedJson;
+                }
+                else
+                {
+                    // File is unencrypted (legacy format), convert it
+                    Logging.Debug("Server_Config", "LoadAndDecryptConfig", "Config file is unencrypted. Converting to encrypted format...");
+                    
+                    // Validate that it's valid JSON
+                    using (JsonDocument document = JsonDocument.Parse(fileContent))
+                    {
+                        // JSON is valid, encrypt and save it
+                        string encryptedContent = String_Encryption.Encrypt(fileContent, Application_Settings.NetLock_Local_Encryption_Key);
+                        File.WriteAllText(Application_Paths.program_data_server_config_json, encryptedContent);
+                        
+                        Logging.Debug("Server_Config", "LoadAndDecryptConfig", "Config file successfully encrypted and saved.");
+                        
+                        // Update cache
+                        _cachedDecryptedJson = fileContent;
+                        _cacheTimestamp = DateTime.Now;
+                        
+                        return fileContent;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.Error("Server_Config", "LoadAndDecryptConfig", ex.ToString());
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Saves the server config JSON in encrypted format.
+        /// </summary>
+        public static bool SaveEncryptedConfig(string jsonContent)
+        {
+            try
+            {
+                string encryptedContent = String_Encryption.Encrypt(jsonContent, Application_Settings.NetLock_Local_Encryption_Key);
+                File.WriteAllText(Application_Paths.program_data_server_config_json, encryptedContent);
+                
+                // Update cache
+                _cachedDecryptedJson = jsonContent;
+                _cacheTimestamp = DateTime.Now;
+                
+                Logging.Debug("Server_Config", "SaveEncryptedConfig", "Config file successfully encrypted and saved.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logging.Error("Server_Config", "SaveEncryptedConfig", ex.ToString());
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Invalidates the cache, forcing a reload on next access.
+        /// </summary>
+        public static void InvalidateCache()
+        {
+            _cachedDecryptedJson = null;
+            _cacheTimestamp = DateTime.MinValue;
+        }
+
+        /// <summary>
+        /// Saves the Health Agent server config JSON in encrypted format.
+        /// </summary>
+        public static bool SaveEncryptedHealthAgentConfig(string jsonContent)
+        {
+            try
+            {
+                //string encryptedContent = String_Encryption.Encrypt(jsonContent, Application_Settings.NetLock_Local_Encryption_Key);
+                //File.WriteAllText(Application_Paths.program_data_health_agent_server_config, encryptedContent);
+                
+                // Older installations are not able to read the encrypted config. Thats why we still keep it unencrypted for now and will provide a upgrade script for the health agent later.
+                File.WriteAllText(Application_Paths.program_data_health_agent_server_config, jsonContent);
+                
+                Logging.Debug("Server_Config", "SaveEncryptedHealthAgentConfig", "Health Agent config file successfully encrypted and saved.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logging.Error("Server_Config", "SaveEncryptedHealthAgentConfig", ex.ToString());
+                return false;
+            }
+        }
+        
         public static string Ssl()
         {
             try
             {
-                string server_config_json = File.ReadAllText(Application_Paths.program_data_server_config_json);
+                string server_config_json = LoadAndDecryptConfig();
+                
+                if (server_config_json == null)
+                {
+                    Logging.Error("Server_Config_Handler", "Ssl", "Failed to load server config.");
+                    return false.ToString();
+                }
 
                 // Parse the JSON
                 using (JsonDocument document = JsonDocument.Parse(server_config_json))
@@ -51,7 +185,13 @@ namespace Global.Initialization
         {
             try
             {
-                string server_config_json = File.ReadAllText(Application_Paths.program_data_server_config_json);
+                string server_config_json = LoadAndDecryptConfig();
+                
+                if (server_config_json == null)
+                {
+                    Logging.Error("Server_Config_Handler", "Package_Guid", "Failed to load server config.");
+                    return false.ToString();
+                }
 
                 // Parse the JSON
                 using (JsonDocument document = JsonDocument.Parse(server_config_json))
@@ -73,7 +213,14 @@ namespace Global.Initialization
         {
             try
             {
-                string server_config_json = File.ReadAllText(Application_Paths.program_data_server_config_json);
+                string server_config_json = LoadAndDecryptConfig();
+                
+                if (server_config_json == null)
+                {
+                    Logging.Error("Server_Config_Handler", "Communication_Servers", "Failed to load server config.");
+                    return "error";
+                }
+                
                 Logging.Debug("Server_Config_Handler", "Server_Config_Handler.Load (server_config_json)", server_config_json);
                 // Parse the JSON
                 using (JsonDocument document = JsonDocument.Parse(server_config_json))
@@ -94,7 +241,14 @@ namespace Global.Initialization
         {
             try
             {
-                string server_config_json = File.ReadAllText(Application_Paths.program_data_server_config_json);
+                string server_config_json = LoadAndDecryptConfig();
+                
+                if (server_config_json == null)
+                {
+                    Logging.Error("Server_Config_Handler", "Remote_Servers", "Failed to load server config.");
+                    return "error";
+                }
+                
                 Logging.Debug("Server_Config_Handler", "Server_Config_Handler.Load (server_config_json)", server_config_json);
                 // Parse the JSON
                 using (JsonDocument document = JsonDocument.Parse(server_config_json))
@@ -115,7 +269,14 @@ namespace Global.Initialization
         {
             try
             {
-                string server_config_json = File.ReadAllText(Application_Paths.program_data_server_config_json);
+                string server_config_json = LoadAndDecryptConfig();
+                
+                if (server_config_json == null)
+                {
+                    Logging.Error("Server_Config_Handler", "Update_Servers", "Failed to load server config.");
+                    return "error";
+                }
+                
                 Logging.Debug("Server_Config_Handler", "Server_Config_Handler.Load (server_config_json)", server_config_json);
                 // Parse the JSON
                 using (JsonDocument document = JsonDocument.Parse(server_config_json))
@@ -136,7 +297,14 @@ namespace Global.Initialization
         {
             try
             {
-                string server_config_json = File.ReadAllText(Application_Paths.program_data_server_config_json);
+                string server_config_json = LoadAndDecryptConfig();
+                
+                if (server_config_json == null)
+                {
+                    Logging.Error("Server_Config_Handler", "Trust_Servers", "Failed to load server config.");
+                    return "error";
+                }
+                
                 Logging.Debug("Server_Config_Handler", "Server_Config_Handler.Load (server_config_json)", server_config_json);
                 // Parse the JSON
                 using (JsonDocument document = JsonDocument.Parse(server_config_json))
@@ -157,7 +325,14 @@ namespace Global.Initialization
         {
             try
             {
-                string server_config_json = File.ReadAllText(Application_Paths.program_data_server_config_json);
+                string server_config_json = LoadAndDecryptConfig();
+                
+                if (server_config_json == null)
+                {
+                    Logging.Error("Server_Config_Handler", "File_Servers", "Failed to load server config.");
+                    return "error";
+                }
+                
                 Logging.Debug("Server_Config_Handler", "Server_Config_Handler.Load (server_config_json)", server_config_json);
                 // Parse the JSON
                 using (JsonDocument document = JsonDocument.Parse(server_config_json))
@@ -178,7 +353,14 @@ namespace Global.Initialization
         {
             try
             {
-                string server_config_json = File.ReadAllText(Application_Paths.program_data_server_config_json);
+                string server_config_json = LoadAndDecryptConfig();
+                
+                if (server_config_json == null)
+                {
+                    Logging.Error("Server_Config_Handler", "Tenant_Guid", "Failed to load server config.");
+                    return "error";
+                }
+                
                 Logging.Debug("Server_Config_Handler", "Server_Config_Handler.Load (server_config_json)", server_config_json);
                 // Parse the JSON
                 using (JsonDocument document = JsonDocument.Parse(server_config_json))
@@ -199,7 +381,14 @@ namespace Global.Initialization
         {
             try
             {
-                string server_config_json = File.ReadAllText(Application_Paths.program_data_server_config_json);
+                string server_config_json = LoadAndDecryptConfig();
+                
+                if (server_config_json == null)
+                {
+                    Logging.Error("Server_Config_Handler", "Location_Guid", "Failed to load server config.");
+                    return "error";
+                }
+                
                 Logging.Debug("Server_Config_Handler", "Server_Config_Handler.Load (server_config_json)", server_config_json);
                 // Parse the JSON
                 using (JsonDocument document = JsonDocument.Parse(server_config_json))
@@ -220,7 +409,14 @@ namespace Global.Initialization
         {
             try
             {
-                string server_config_json = File.ReadAllText(Application_Paths.program_data_server_config_json);
+                string server_config_json = LoadAndDecryptConfig();
+                
+                if (server_config_json == null)
+                {
+                    Logging.Error("Server_Config_Handler", "Language", "Failed to load server config.");
+                    return "error";
+                }
+                
                 Logging.Debug("Server_Config_Handler", "Server_Config_Handler.Load (server_config_json)", server_config_json);
                 // Parse the JSON
                 using (JsonDocument document = JsonDocument.Parse(server_config_json))
@@ -241,7 +437,14 @@ namespace Global.Initialization
         {
             try
             {
-                string serverConfigJson = File.ReadAllText(Application_Paths.program_data_server_config_json);
+                string serverConfigJson = LoadAndDecryptConfig();
+                
+                if (serverConfigJson == null)
+                {
+                    Logging.Error("Server_Config_Handler", "Authorized", "Failed to load server config.");
+                    return false;
+                }
+                
                 Logging.Debug("Server_Config_Handler", "Authorized", serverConfigJson);
 
                 // Parse the JSON
@@ -274,7 +477,14 @@ namespace Global.Initialization
             {
                 string access_key = String.Empty;
 
-                string server_config_json = File.ReadAllText(Application_Paths.program_data_server_config_json);
+                string server_config_json = LoadAndDecryptConfig();
+                
+                if (server_config_json == null)
+                {
+                    Logging.Error("Server_Config_Handler", "Access_Key", "Failed to load server config.");
+                    return String.Empty;
+                }
+                
                 Logging.Debug("Server_Config_Handler", "Server_Config_Handler.Load (server_config_json)", server_config_json);
                 // Parse the JSON
                 using (JsonDocument document = JsonDocument.Parse(server_config_json))
@@ -314,8 +524,8 @@ namespace Global.Initialization
                     string json = JsonSerializer.Serialize(jsonObject, new JsonSerializerOptions { WriteIndented = true });
                     Logging.Debug("Online_Mode.Handler.Update_Device_Information", "json", json);
 
-                    // Write the new server config JSON to the file
-                    File.WriteAllText(Application_Paths.program_data_server_config_json, json);
+                    // Write the new server config JSON to the file (encrypted)
+                    SaveEncryptedConfig(json);
                 }
                 else
                 {

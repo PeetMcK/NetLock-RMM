@@ -152,8 +152,9 @@ namespace Global.Events
                                     authorized = false,
                                 }, new JsonSerializerOptions { WriteIndented = true });
 
-                                // Write the new server config JSON to the file
-                                File.WriteAllText(Application_Paths.program_data_server_config_json, new_server_config_json);
+                                // Write the new server config JSON to the file (encrypted)
+                                Initialization.Server_Config.SaveEncryptedConfig(new_server_config_json);
+                                Initialization.Server_Config.InvalidateCache();
 
                                 Device_Worker.authorized = false;
                             }

@@ -800,7 +800,7 @@ namespace NetLock_RMM_Web_Console.Classes.MySQL
         }
 
         // Get SSO Configuration from database
-        //OSSCH_START d597e8db-ebb3-424b-ad91-7cbe752c0081 //OSSCH_END
+        //OSSCH_START b61b0d3c-0024-4dcb-b936-30bfc4f23f3f //OSSCH_END
         
         
     }

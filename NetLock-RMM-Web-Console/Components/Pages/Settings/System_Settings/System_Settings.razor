@@ -261,7 +261,7 @@
                             </MudGrid>
                         </MudPaper>
 
-                        @foreach (var server in servers)
+                @*@foreach (var server in servers)
                         {
                             DateTime lastHeartbeat;
                             bool isRecent = false;
@@ -331,6 +331,7 @@
                                 </MudExpansionPanel>
                             </MudPaper>
                         }
+                        *@
 
                     <!-- NetLock RMM File Server Status -->
 
@@ -2156,7 +2157,7 @@
 
         await MySQL_Status();
         await Fix_Settings(); // this is a hotfix code to verify if a bug is present in the database
-        await Get_Servers();
+        //await Get_Servers();
         await Get_Agent_Updates();
 
         if (Configuration.Members_Portal.IsApiEnabled)
@@ -2419,7 +2420,7 @@
     }
 
     // Servers overview
-    private List<Servers> servers = new List<Servers>();
+    /*private List<Servers> servers = new List<Servers>();
 
     public class Servers
     {
@@ -2481,15 +2482,16 @@
             conn.Close();
         }
     }
+    */
 
     // Save api key for members portal
-    //OSSCH_START 1265d4f0-29a5-4e58-86b6-1c9eba992eb1 //OSSCH_END
+    //OSSCH_START 19f6cc4c-b40f-4a71-9042-351cdbb328d0 //OSSCH_END
 
     // Update members portal license information
-    //OSSCH_START 2803e953-3ed3-4e01-a97c-6088398d2c28 //OSSCH_END
+    //OSSCH_START ed5b2f0b-8215-43d5-ad66-c2dd8082e2e7 //OSSCH_END
 
     // Get members portal license status
-    //OSSCH_START 589920dd-fab8-4f00-88c2-d74ae16330af //OSSCH_END
+    //OSSCH_START b55aaaac-a333-41c5-ab78-5d6453ecdc95 //OSSCH_END
 
     // Get agent updates settings
     private async Task Get_Agent_Updates()
@@ -2999,7 +3001,7 @@ OPTIMIZE TABLE tenants;";
     }
 
     // SSO Settings
-    //OSSCH_START 4b10d884-7b84-4acd-912a-b151cc48154f //OSSCH_END
+    //OSSCH_START cc45112a-2323-4f2f-a8f6-5815c079a69c //OSSCH_END
     
     // IP Whitelist Settings
     private async Task Get_Ip_Whitelist()
@@ -3208,6 +3210,6 @@ OPTIMIZE TABLE tenants;";
     }
     
     // Whitelabeling Settings
-    //OSSCH_START e1fa3aeb-3405-4e80-8c67-e5a02c5aa052 //OSSCH_END
+    //OSSCH_START 59156e9c-ccc2-4694-b8c1-90b65faaeaa7 //OSSCH_END
 }
 

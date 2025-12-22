@@ -18,6 +18,8 @@
 @inject IStringLocalizer<Pages.Events.Manage_Events> Localizer
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
+@implements IDisposable
+
     <style>
     @@keyframes fadeIn {
         from {
@@ -299,6 +301,8 @@
     #endregion
 
     private bool loading_overlay = false;
+    private System.Threading.Timer _eventsRefreshTimer;
+    private bool _isRefreshingEvents = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -310,6 +314,36 @@
         if (firstRender)
         {
             await AfterInitializedAsync();
+            
+            // Timer für automatische Aktualisierung der Events alle 60 Sekunden
+            _eventsRefreshTimer = new System.Threading.Timer(_ => 
+            {
+                if (!_isRefreshingEvents)
+                {
+                    _isRefreshingEvents = true;
+                    
+                    _ = InvokeAsync(async () =>
+                    {
+                        try
+                        {
+                            var updatedEvents = await Events_Load(true);
+                            events_mysql_data = updatedEvents;
+                            StateHasChanged();
+                            
+                            // Show subtle notification
+                            Classes.Helper.Notifications.WebConsole.AutoRefresh(Snackbar, "Events", updatedEvents.Count);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logging.Handler.Error("/events -> Events Auto-Refresh", "Error", ex.ToString());
+                        }
+                        finally
+                        {
+                            _isRefreshingEvents = false;
+                        }
+                    });
+                }
+            }, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
         }
     }
 
@@ -440,7 +474,11 @@
             return new List<Events_Table>();
         }
 
-        loading_overlay = true;
+        // Nur loading_overlay anzeigen, wenn es NICHT vom Timer kommt
+        if (!bypass_events_load_counter)
+        {
+            loading_overlay = true;
+        }
 
         string severity_condition = String.Empty;
         string type_condition = String.Empty;
@@ -560,7 +598,11 @@
         finally
         {
             conn.Close();
-            loading_overlay = false;
+            // Nur loading_overlay deaktivieren, wenn es NICHT vom Timer kommt
+            if (!bypass_events_load_counter)
+            {
+                loading_overlay = false;
+            }
         }
     }
 
@@ -795,4 +837,9 @@
     }
 
     #endregion
+
+    public void Dispose()
+    {
+        _eventsRefreshTimer?.Dispose();
+    }
 }

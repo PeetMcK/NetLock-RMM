@@ -10,5 +10,5 @@ using Global.Helper;
 
 namespace Global.Encryption
 {
-    //OSSCH_START 35470db9-3b66-4324-901e-b7d581824e83 //OSSCH_END
+    //OSSCH_START dcafec42-c9c4-4767-bfd6-6dc8b1f7b00d //OSSCH_END
 }

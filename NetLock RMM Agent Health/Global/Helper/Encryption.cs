@@ -8,4 +8,7 @@ using Microsoft.Win32;
 using System.Security.Cryptography;
 using Global.Helper;
 
-//OSSCH_START dcb45f97-ac20-44b1-b91b-3d4dc1a88d87 //OSSCH_END
+namespace Global.Encryption
+{
+    //OSSCH_START df7a7e4e-d0a6-4d73-87b8-c2ecb0b99f67 //OSSCH_END
+}
