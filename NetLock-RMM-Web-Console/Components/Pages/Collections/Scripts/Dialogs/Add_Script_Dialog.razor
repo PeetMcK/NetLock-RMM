@@ -32,6 +32,16 @@
 
         <MudTextField Label="@Localizer["name"]" T="string" @bind-Value="@script_name" Required="true" RequiredError="@Localizer["required"]" Immediate="@true" />
         <MudTextField Label="@Localizer["description"]" T="string" @bind-Value="@description" Required="false" RequiredError="@Localizer["required"]" Immediate="@true" />
+        
+        <MudNumericField Label="Default timeout" 
+                         T="int" 
+                         @bind-Value="@timeout" 
+                         Min="1" 
+                         Max="9999"
+                         Adornment="Adornment.End"
+                         AdornmentText="Minutes"
+                         HelperText="Maximum execution time for the script. It will be terminated if it exceeds this limit."
+                         Required="true" />
 
         <MudSelect Class="mt-3" T="string" @bind-Value="platform" @bind-Value:after=@StateHasChanged Label="@Localizer["platform"]" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
             <MudSelectItem Value="@("Windows")" />
@@ -120,7 +130,6 @@
                     <StandaloneCodeEditor Id="powershell-editor" CssClass="monaco-editor" @ref="script_editor" ConstructionOptions="PowerShell_Editor_Construction_Options" OnDidChangeModelContent="Editor_Handle_Input" />
                 }
             }
-
         }
 
     </DialogContent>
@@ -180,17 +189,7 @@
     private string platform = "Windows";
     private string shell = "PowerShell";
     private string script = String.Empty;
-
-    public class Script
-    {
-        public string name { get; set; }
-        public string date { get; set; }
-        public string author { get; set; }
-        public string description { get; set; }
-        public string platform { get; set; }
-        public string shell { get; set; }
-        public string script { get; set; }
-    }
+    private int timeout = 5; // in minutes, will be converted to milliseconds when executing
 
     private bool Form_Valid()
     {
@@ -328,6 +327,7 @@
                 platform = platform,
                 shell = shell,
                 script = script,
+                timeout = timeout
             };
 
             string scripts_json_string = JsonSerializer.Serialize(script_json, new JsonSerializerOptions { WriteIndented = true });

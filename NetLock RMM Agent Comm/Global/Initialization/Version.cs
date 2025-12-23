@@ -215,9 +215,9 @@ namespace Global.Initialization
 
                 // Set permissions on linux & macos
                 if (OperatingSystem.IsLinux())
-                    Bash.Execute_Script("Installer Permissions", false, $"chmod +x \"{Application_Paths.c_temp_installer_path}\"");
+                    Bash.Execute_Script("Installer Permissions", false, $"chmod +x \"{Application_Paths.c_temp_installer_path}\"",0);
                 else if (OperatingSystem.IsMacOS())
-                    Bash.Execute_Script("Installer Permissions", false, $"chmod +x \"{Application_Paths.c_temp_installer_path}\"");
+                    Bash.Execute_Script("Installer Permissions", false, $"chmod +x \"{Application_Paths.c_temp_installer_path}\"",0);
 
                 // Run the installer
                 if (OperatingSystem.IsWindows())

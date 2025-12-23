@@ -1,0 +1,156 @@
+@using System.Text.Json
+@using System.Text.Json.Serialization
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h5">Event Details - Event ID: @EventEntry.EventId</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Record ID:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@EventEntry.RecordId</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Time Created:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@EventEntry.GetFormattedTimeCreated()</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Level:</strong></MudText>
+                <MudChip T="string" Color="@GetLevelColor(EventEntry.LevelValue)" Size="Size.Small">@EventEntry.Level (@EventEntry.LevelValue)</MudChip>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Event ID:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@EventEntry.EventId</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Log Name:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@EventEntry.LogName</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Source:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@EventEntry.Source</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Provider Name:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@EventEntry.ProviderName</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Computer:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@EventEntry.Computer</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>User:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@EventEntry.User</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Task Category:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@EventEntry.TaskCategory</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Task Display Name:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@EventEntry.TaskDisplayName</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Opcode:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@EventEntry.Opcode</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Opcode Display Name:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@EventEntry.OpcodeDisplayName</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Process ID:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@EventEntry.ProcessId</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Thread ID:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@EventEntry.ThreadId</MudText>
+            </MudItem>
+
+            @if (!string.IsNullOrEmpty(EventEntry.ActivityId))
+            {
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Activity ID:</strong></MudText>
+                    <MudText Typo="Typo.body2" Class="mb-3">@EventEntry.ActivityId</MudText>
+                </MudItem>
+            }
+
+            @if (!string.IsNullOrEmpty(EventEntry.RelatedActivityId))
+            {
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Related Activity ID:</strong></MudText>
+                    <MudText Typo="Typo.body2" Class="mb-3">@EventEntry.RelatedActivityId</MudText>
+                </MudItem>
+            }
+
+            @if (EventEntry.Keywords != null && EventEntry.Keywords.Count > 0)
+            {
+                <MudItem xs="12">
+                    <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Keywords:</strong></MudText>
+                    <MudText Typo="Typo.body2" Class="mb-3">@string.Join(", ", EventEntry.Keywords)</MudText>
+                </MudItem>
+            }
+
+            @if (EventEntry.KeywordsDisplayNames != null && EventEntry.KeywordsDisplayNames.Count > 0)
+            {
+                <MudItem xs="12">
+                    <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Keywords Display Names:</strong></MudText>
+                    <MudText Typo="Typo.body2" Class="mb-3">@string.Join(", ", EventEntry.KeywordsDisplayNames)</MudText>
+                </MudItem>
+            }
+
+            <MudItem xs="12">
+                <MudDivider Class="my-3" />
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Message:</strong></MudText>
+                <MudPaper Class="pa-3" Elevation="0" Style="background-color: rgba(0,0,0,0.05); max-height: 400px; overflow-y: auto;">
+                    <MudText Typo="Typo.body2" Style="white-space: pre-wrap;">@EventEntry.Message</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close" Variant="Variant.Filled" Size="Size.Small" Color="Color.Default">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+    [Parameter] public EventLogEntry EventEntry { get; set; }
+
+
+    private Color GetLevelColor(byte? level)
+    {
+        if (!level.HasValue) return Color.Default;
+
+        return level.Value switch
+        {
+            1 => Color.Error,      // Critical
+            2 => Color.Error,      // Error
+            3 => Color.Warning,    // Warning
+            4 => Color.Info,       // Information
+            5 => Color.Default,    // Verbose
+            _ => Color.Default
+        };
+    }
+
+    private void Close()
+    {
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+}
+

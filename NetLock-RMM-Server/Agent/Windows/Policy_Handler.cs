@@ -142,6 +142,7 @@ namespace NetLock_RMM_Server.Agent.Windows
             public string? platform { get; set; }
             public string? type { get; set; }
             public string? script { get; set; }
+            public int? timeout { get; set; }
 
             public int? time_scheduler_type { get; set; }
             public int? time_scheduler_seconds { get; set; }

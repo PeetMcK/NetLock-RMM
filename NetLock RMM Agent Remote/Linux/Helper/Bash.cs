@@ -11,25 +11,42 @@ namespace Linux.Helper
 {
     internal class Bash
     {
-        public static string Execute_Script(string type, bool decode, string script)
+        public static string Execute_Script(string type, bool decode, string script, int timeout = 0) // timeout in minutes
         {
+            Process process = null;
+
             try
             {
                 Health.Check_Directories();
 
                 Logging.Debug("Linux.Helper.Bash.Execute_Script", "Executing script", $"type: {type}, script length: {script.Length}");
 
+                // Set timeout to 60 minutes if no timeout is set, otherwise convert minutes to milliseconds
+                if (timeout == 0)
+                    timeout = 3600000; // 60 minutes in milliseconds
+                else
+                    timeout = timeout * 60 * 1000; // Convert minutes to milliseconds
+
                 if (String.IsNullOrEmpty(script))
                 {
-                    Logging.Error("Linux.Helper.Bash.Execute_Script", "Script is empty", "");
-                    return "-";
+                    Logging.Error("Linux.Helper.Bash.Execute_Script", "Script is empty", String.Empty);
+                    return "Error: Script is empty";
                 }
 
                 // Decode the script from Base64
+                string decoded_script;
                 if (decode)
                 {
-                    byte[] script_data = Convert.FromBase64String(script);
-                    string decoded_script = Encoding.UTF8.GetString(script_data);
+                    try
+                    {
+                        byte[] script_data = Convert.FromBase64String(script);
+                        decoded_script = Encoding.UTF8.GetString(script_data);
+                    }
+                    catch (FormatException ex)
+                    {
+                        Logging.Error("Linux.Helper.Bash.Execute_Script", "Invalid Base64 script", ex.Message);
+                        return "Error: Invalid Base64 encoding";
+                    }
 
                     // Convert Windows line endings (\r\n) to Unix line endings (\n)
                     script = decoded_script.Replace("\r\n", "\n");
@@ -37,102 +54,110 @@ namespace Linux.Helper
                     Logging.Debug("Linux.Helper.Bash.Execute_Script", "Decoded script", script);
                 }
 
-                // Create a new process
-                using (Process process = new Process())
+                if (String.IsNullOrWhiteSpace(script))
                 {
-                    process.StartInfo.FileName = "/bin/bash";
-                    process.StartInfo.Arguments = "-s"; // Read script from standard input
-                    process.StartInfo.UseShellExecute = false;
-                    process.StartInfo.RedirectStandardInput = true;
-                    process.StartInfo.RedirectStandardOutput = true;
-                    process.StartInfo.RedirectStandardError = true;
-                    process.StartInfo.CreateNoWindow = true;
-
-                    // Start the process
-                    process.Start();
-
-                    // Write the cleaned script to the process's standard input and close it immediately
-                    using (StreamWriter writer = process.StandardInput)
-                    {
-                        writer.Write(script);
-                    }
-                    // StandardInput is automatically closed when the StreamWriter is disposed
-
-                    // Capture the streams before they can be disposed
-                    var stdout = process.StandardOutput;
-                    var stderr = process.StandardError;
-
-                    // Use async reading with timeout to prevent hanging
-                    var outputTask = Task.Run(() => stdout.ReadToEnd());
-                    var errorTask = Task.Run(() => stderr.ReadToEnd());
-
-                    // Wait for process to exit with timeout (5 minutes instead of 1 day)
-                    const int timeoutMs = 300000; // 5 minutes
-                    bool processExited = process.WaitForExit(timeoutMs);
-
-                    string output = "";
-                    string error = "";
-
-                    if (processExited)
-                    {
-                        // Process exited normally, get the results
-                        try
-                        {
-                            if (outputTask.Wait(5000)) // Wait max 5 seconds for output reading
-                                output = outputTask.Result;
-                            else
-                                output = "Output reading timed out";
-                        }
-                        catch (Exception)
-                        {
-                            output = "Error reading output";
-                        }
-
-                        try
-                        {
-                            if (errorTask.Wait(5000)) // Wait max 5 seconds for error reading
-                                error = errorTask.Result;
-                            else
-                                error = "Error reading timed out";
-                        }
-                        catch (Exception)
-                        {
-                            error = "Error reading stderr";
-                        }
-                    }
-                    else
-                    {
-                        // Process didn't exit within timeout, kill it
-                        try
-                        {
-                            process.Kill();
-                            process.WaitForExit(5000); // Give it 5 seconds to clean up
-                        }
-                        catch (Exception)
-                        {
-                            // Ignore errors when killing the process
-                        }
-
-                        return "Error: Script execution timed out (5 minutes). The script may have been waiting for user input or was stuck in an infinite loop.";
-                    }
-
-                    // Log the output and error
-                    if (!string.IsNullOrEmpty(error))
-                    {
-                        Logging.PowerShell("Linux.Helper.Bash.Execute_Script", "Script error output", error);
-                        return "Output: " + Environment.NewLine + output + Environment.NewLine + Environment.NewLine + "More output: " + Environment.NewLine + error;
-                    }
-                    else
-                    {
-                        Logging.PowerShell("Linux.Helper.Bash.Execute_Script", "Command executed successfully", Environment.NewLine + "Result:" + output);
-                        return output;
-                    }
+                    Logging.Error("Linux.Helper.Bash.Execute_Script", "Script is empty after decoding", String.Empty);
+                    return "Error: Decoded script is empty";
                 }
+
+                // Create a new process
+                process = new Process();
+                process.StartInfo.FileName = "/bin/bash";
+                process.StartInfo.Arguments = "-s"; // Read script from standard input
+                process.StartInfo.UseShellExecute = false;
+                process.StartInfo.RedirectStandardInput = true;
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.RedirectStandardError = true;
+                process.StartInfo.CreateNoWindow = true;
+
+                // Use StringBuilder for better performance when reading large outputs
+                StringBuilder output = new StringBuilder();
+                StringBuilder error = new StringBuilder();
+
+                // Asynchronous output reading to avoid deadlocks
+                process.OutputDataReceived += (sender, e) =>
+                {
+                    if (e.Data != null)
+                        output.AppendLine(e.Data);
+                };
+
+                process.ErrorDataReceived += (sender, e) =>
+                {
+                    if (e.Data != null)
+                        error.AppendLine(e.Data);
+                };
+
+                // Start the process
+                process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+
+                // Write the cleaned script to the process's standard input and close it immediately
+                using (StreamWriter writer = process.StandardInput)
+                {
+                    writer.Write(script);
+                }
+                // StandardInput is automatically closed when the StreamWriter is disposed
+
+                // Wait for process to exit with timeout
+                bool exited = process.WaitForExit(timeout);
+
+                if (!exited)
+                {
+                    process.Kill(true);
+                    process.WaitForExit(); // Ensure async streams are flushed
+                    string timeoutMessage = $"Error: Script execution timed out after {timeout / 60000} minutes.";
+                    Logging.Error("Linux.Helper.Bash.Execute_Script", "Script execution timed out", $"Timeout: {timeout}ms");
+                    return timeoutMessage;
+                }
+
+                // Wait for async output reading to complete
+                process.WaitForExit();
+
+                string result = output.ToString();
+                string errorOutput = error.ToString();
+
+                if (!String.IsNullOrWhiteSpace(errorOutput))
+                {
+                    Logging.Error("Linux.Helper.Bash.Execute_Script", "Script produced error output", errorOutput);
+                    result += Environment.NewLine + "STDERR: " + errorOutput;
+                }
+
+                int exitCode = process.ExitCode;
+                if (exitCode != 0)
+                {
+                    Logging.Error("Linux.Helper.Bash.Execute_Script", $"Script exited with code {exitCode}", errorOutput);
+                    result += Environment.NewLine + $"Exit Code: {exitCode}";
+                }
+                else
+                {
+                    Logging.PowerShell("Linux.Helper.Bash.Execute_Script", "Script execution successful", $"Exit code: {exitCode}");
+                }
+
+                return result;
             }
             catch (Exception ex)
             {
-                Logging.Error("Linux.Helper.Bash.Execute_Script", "Error executing script", ex.ToString());
-                return ex.Message;
+                Logging.Error("Linux.Helper.Bash.Execute_Script", "Failed executing script. Type: " + type, ex.ToString());
+                return "Error: " + ex.Message;
+            }
+            finally
+            {
+                // Ensure process is disposed
+                if (process != null)
+                {
+                    try
+                    {
+                        if (!process.HasExited)
+                            process.Kill(true);
+
+                        process.Dispose();
+                    }
+                    catch
+                    {
+                        // Ignore disposal errors
+                    }
+                }
             }
         }
     }

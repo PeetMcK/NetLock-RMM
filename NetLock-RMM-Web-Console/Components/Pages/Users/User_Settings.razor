@@ -201,6 +201,7 @@
                         <MudCheckBox Class="ml-2" T="bool" @bind-Value="@devices_remote_shell" Label="Remote Shell" Color="Color.Primary" Style="max-width: 500px" />
                         <MudCheckBox Class="ml-2" T="bool" @bind-Value="@devices_remote_file_browser" Label="Remote File Browser" Color="Color.Primary" Style="max-width: 500px" />
                         <MudCheckBox Class="ml-2" T="bool" @bind-Value="@devices_remote_control" Label="Remote Control" Color="Color.Primary" Style="max-width: 500px" />
+                        <MudCheckBox Class="ml-2" T="bool" @bind-Value="@devices_remote_eventlog_viewer" Label="Remote EventLog Viewer" Color="Color.Primary" Style="max-width: 500px" />
 
                     </MudPaper>
 
@@ -463,6 +464,7 @@
     private bool devices_remote_shell = false;
     private bool devices_remote_file_browser = false;
     private bool devices_remote_control = false;
+    private bool devices_remote_eventlog_viewer = false;
     private bool devices_deauthorize = false;
     private bool devices_move = false;
 
@@ -604,6 +606,7 @@
         public bool devices_remote_shell { get; set; }
         public bool devices_remote_file_browser { get; set; }
         public bool devices_remote_control { get; set; }
+        public bool devices_remote_eventlog_viewer { get; set; }
         public bool devices_deauthorize { get; set; }
         public bool devices_move { get; set; }
 
@@ -803,6 +806,7 @@
                 devices_remote_shell = devices_remote_shell,
                 devices_remote_file_browser = devices_remote_file_browser,
                 devices_remote_control = devices_remote_control,
+                devices_remote_eventlog_viewer = devices_remote_eventlog_viewer,
                 devices_deauthorize = devices_deauthorize,
                 devices_move = devices_move,
 
@@ -1028,6 +1032,24 @@
         }
     }
 
+    private bool GetBoolProperty(JsonElement element, string propertyName, bool defaultValue = false)
+    {
+        try
+        {
+            if (element.TryGetProperty(propertyName, out JsonElement property))
+            {
+                return property.GetBoolean();
+            }
+            Logging.Handler.Debug("/user_settings -> GetBoolProperty", "Missing property", $"{propertyName} not found, using default: {defaultValue}");
+            return defaultValue;
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("/user_settings -> GetBoolProperty", propertyName, ex.Message);
+            return defaultValue;
+        }
+    }
+
     private async Task Get_Permissions()
     {
         //Extract permissions_json
@@ -1036,145 +1058,145 @@
             Logging.Handler.Debug("/user_settings -> Get_Permissions (Extract)", "permissions_json", permissions_json);
 
             JsonDocument jsonDocument = JsonDocument.Parse(permissions_json);
+            JsonElement root = jsonDocument.RootElement;
 
             //dashboard
-            dashboard_enabled = jsonDocument.RootElement.GetProperty("dashboard_enabled").GetBoolean();
+            dashboard_enabled = GetBoolProperty(root, "dashboard_enabled");
 
             //permissions: devices
-            devices_authorized_enabled = jsonDocument.RootElement.GetProperty("devices_authorized_enabled").GetBoolean();
-            devices_general = jsonDocument.RootElement.GetProperty("devices_general").GetBoolean();
-            devices_software = jsonDocument.RootElement.GetProperty("devices_software").GetBoolean();
-            devices_task_manager = jsonDocument.RootElement.GetProperty("devices_task_manager").GetBoolean();
-            devices_antivirus = jsonDocument.RootElement.GetProperty("devices_antivirus").GetBoolean();
-            devices_events = jsonDocument.RootElement.GetProperty("devices_events").GetBoolean();
-            devices_remote_shell = jsonDocument.RootElement.GetProperty("devices_remote_shell").GetBoolean();
-            devices_remote_file_browser = jsonDocument.RootElement.GetProperty("devices_remote_file_browser").GetBoolean();
-            devices_remote_control = jsonDocument.RootElement.GetProperty("devices_remote_control").GetBoolean();
-            devices_deauthorize = jsonDocument.RootElement.GetProperty("devices_deauthorize").GetBoolean();
-            devices_move = jsonDocument.RootElement.GetProperty("devices_move").GetBoolean();
+            devices_authorized_enabled = GetBoolProperty(root, "devices_authorized_enabled");
+            devices_general = GetBoolProperty(root, "devices_general");
+            devices_software = GetBoolProperty(root, "devices_software");
+            devices_task_manager = GetBoolProperty(root, "devices_task_manager");
+            devices_antivirus = GetBoolProperty(root, "devices_antivirus");
+            devices_events = GetBoolProperty(root, "devices_events");
+            devices_remote_shell = GetBoolProperty(root, "devices_remote_shell");
+            devices_remote_file_browser = GetBoolProperty(root, "devices_remote_file_browser");
+            devices_remote_control = GetBoolProperty(root, "devices_remote_control");
+            devices_remote_eventlog_viewer = GetBoolProperty(root, "devices_remote_eventlog_viewer");
+            devices_deauthorize = GetBoolProperty(root, "devices_deauthorize");
+            devices_move = GetBoolProperty(root, "devices_move");
 
-            devices_unauthorized_enabled = jsonDocument.RootElement.GetProperty("devices_unauthorized_enabled").GetBoolean();
-            devices_unauthorized_authorize = jsonDocument.RootElement.GetProperty("devices_unauthorized_authorize").GetBoolean();
+            devices_unauthorized_enabled = GetBoolProperty(root, "devices_unauthorized_enabled");
+            devices_unauthorized_authorize = GetBoolProperty(root, "devices_unauthorized_authorize");
 
             //permissions: tenants
-            tenants_enabled = jsonDocument.RootElement.GetProperty("tenants_enabled").GetBoolean();
-            tenants_add = jsonDocument.RootElement.GetProperty("tenants_add").GetBoolean();
-            tenants_manage = jsonDocument.RootElement.GetProperty("tenants_manage").GetBoolean();
-            tenants_edit = jsonDocument.RootElement.GetProperty("tenants_edit").GetBoolean();
-            tenants_delete = jsonDocument.RootElement.GetProperty("tenants_delete").GetBoolean();
-            tenants_locations_add = jsonDocument.RootElement.GetProperty("tenants_locations_add").GetBoolean();
-            tenants_locations_manage = jsonDocument.RootElement.GetProperty("tenants_locations_manage").GetBoolean();
-            tenants_locations_edit = jsonDocument.RootElement.GetProperty("tenants_locations_edit").GetBoolean();
-            tenants_locations_delete = jsonDocument.RootElement.GetProperty("tenants_locations_delete").GetBoolean();
-            tenants_groups_add = jsonDocument.RootElement.GetProperty("tenants_groups_add").GetBoolean();
-            tenants_groups_edit = jsonDocument.RootElement.GetProperty("tenants_groups_edit").GetBoolean();
-            tenants_groups_delete = jsonDocument.RootElement.GetProperty("tenants_groups_delete").GetBoolean();
+            tenants_enabled = GetBoolProperty(root, "tenants_enabled");
+            tenants_add = GetBoolProperty(root, "tenants_add");
+            tenants_manage = GetBoolProperty(root, "tenants_manage");
+            tenants_edit = GetBoolProperty(root, "tenants_edit");
+            tenants_delete = GetBoolProperty(root, "tenants_delete");
+            tenants_locations_add = GetBoolProperty(root, "tenants_locations_add");
+            tenants_locations_manage = GetBoolProperty(root, "tenants_locations_manage");
+            tenants_locations_edit = GetBoolProperty(root, "tenants_locations_edit");
+            tenants_locations_delete = GetBoolProperty(root, "tenants_locations_delete");
+            tenants_groups_add = GetBoolProperty(root, "tenants_groups_add");
+            tenants_groups_edit = GetBoolProperty(root, "tenants_groups_edit");
+            tenants_groups_delete = GetBoolProperty(root, "tenants_groups_delete");
 
             //permissions: automation
-            automation_enabled = jsonDocument.RootElement.GetProperty("automation_enabled").GetBoolean();
-            automation_add = jsonDocument.RootElement.GetProperty("automation_add").GetBoolean();
-            automation_edit = jsonDocument.RootElement.GetProperty("automation_edit").GetBoolean();
-            automation_delete = jsonDocument.RootElement.GetProperty("automation_delete").GetBoolean();
+            automation_enabled = GetBoolProperty(root, "automation_enabled");
+            automation_add = GetBoolProperty(root, "automation_add");
+            automation_edit = GetBoolProperty(root, "automation_edit");
+            automation_delete = GetBoolProperty(root, "automation_delete");
 
             //permissions: policies
-            policies_enabled = jsonDocument.RootElement.GetProperty("policies_enabled").GetBoolean();
-            policies_add = jsonDocument.RootElement.GetProperty("policies_add").GetBoolean();
-            policies_manage = jsonDocument.RootElement.GetProperty("policies_manage").GetBoolean();
-            policies_edit = jsonDocument.RootElement.GetProperty("policies_edit").GetBoolean();
-            policies_delete = jsonDocument.RootElement.GetProperty("policies_delete").GetBoolean();
+            policies_enabled = GetBoolProperty(root, "policies_enabled");
+            policies_add = GetBoolProperty(root, "policies_add");
+            policies_manage = GetBoolProperty(root, "policies_manage");
+            policies_edit = GetBoolProperty(root, "policies_edit");
+            policies_delete = GetBoolProperty(root, "policies_delete");
 
             //permissions: collections
-            collections_enabled = jsonDocument.RootElement.GetProperty("collections_enabled").GetBoolean();
+            collections_enabled = GetBoolProperty(root, "collections_enabled");
 
             //permissions: collections -> acfa
-            collections_antivirus_controlled_folder_access_enabled = jsonDocument.RootElement.GetProperty("collections_antivirus_controlled_folder_access_enabled").GetBoolean();
-            collections_antivirus_controlled_folder_access_add = jsonDocument.RootElement.GetProperty("collections_antivirus_controlled_folder_access_add").GetBoolean();
-            collections_antivirus_controlled_folder_access_manage = jsonDocument.RootElement.GetProperty("collections_antivirus_controlled_folder_access_manage").GetBoolean();
-            collections_antivirus_controlled_folder_access_edit = jsonDocument.RootElement.GetProperty("collections_antivirus_controlled_folder_access_edit").GetBoolean();
-            collections_antivirus_controlled_folder_access_delete = jsonDocument.RootElement.GetProperty("collections_antivirus_controlled_folder_access_delete").GetBoolean();
-            collections_antivirus_controlled_folder_access_processes_add = jsonDocument.RootElement.GetProperty("collections_antivirus_controlled_folder_access_processes_add").GetBoolean();
-            collections_antivirus_controlled_folder_access_processes_edit = jsonDocument.RootElement.GetProperty("collections_antivirus_controlled_folder_access_processes_edit").GetBoolean();
-            collections_antivirus_controlled_folder_access_processes_delete = jsonDocument.RootElement.GetProperty("collections_antivirus_controlled_folder_access_processes_delete").GetBoolean();
+            collections_antivirus_controlled_folder_access_enabled = GetBoolProperty(root, "collections_antivirus_controlled_folder_access_enabled");
+            collections_antivirus_controlled_folder_access_add = GetBoolProperty(root, "collections_antivirus_controlled_folder_access_add");
+            collections_antivirus_controlled_folder_access_manage = GetBoolProperty(root, "collections_antivirus_controlled_folder_access_manage");
+            collections_antivirus_controlled_folder_access_edit = GetBoolProperty(root, "collections_antivirus_controlled_folder_access_edit");
+            collections_antivirus_controlled_folder_access_delete = GetBoolProperty(root, "collections_antivirus_controlled_folder_access_delete");
+            collections_antivirus_controlled_folder_access_processes_add = GetBoolProperty(root, "collections_antivirus_controlled_folder_access_processes_add");
+            collections_antivirus_controlled_folder_access_processes_edit = GetBoolProperty(root, "collections_antivirus_controlled_folder_access_processes_edit");
+            collections_antivirus_controlled_folder_access_processes_delete = GetBoolProperty(root, "collections_antivirus_controlled_folder_access_processes_delete");
 
             //permissions: collections -> sensors
-            collections_sensors_enabled = jsonDocument.RootElement.GetProperty("collections_sensors_enabled").GetBoolean();
-            collections_sensors_add = jsonDocument.RootElement.GetProperty("collections_sensors_add").GetBoolean();
-            collections_sensors_edit = jsonDocument.RootElement.GetProperty("collections_sensors_edit").GetBoolean();
-            collections_sensors_delete = jsonDocument.RootElement.GetProperty("collections_sensors_delete").GetBoolean();
+            collections_sensors_enabled = GetBoolProperty(root, "collections_sensors_enabled");
+            collections_sensors_add = GetBoolProperty(root, "collections_sensors_add");
+            collections_sensors_edit = GetBoolProperty(root, "collections_sensors_edit");
+            collections_sensors_delete = GetBoolProperty(root, "collections_sensors_delete");
 
             //permissions: collections -> scripts
-            collections_scripts_enabled = jsonDocument.RootElement.GetProperty("collections_scripts_enabled").GetBoolean();
-            collections_scripts_add = jsonDocument.RootElement.GetProperty("collections_scripts_add").GetBoolean();
-            collections_scripts_edit = jsonDocument.RootElement.GetProperty("collections_scripts_edit").GetBoolean();
-            collections_scripts_delete = jsonDocument.RootElement.GetProperty("collections_scripts_delete").GetBoolean();
+            collections_scripts_enabled = GetBoolProperty(root, "collections_scripts_enabled");
+            collections_scripts_add = GetBoolProperty(root, "collections_scripts_add");
+            collections_scripts_edit = GetBoolProperty(root, "collections_scripts_edit");
+            collections_scripts_delete = GetBoolProperty(root, "collections_scripts_delete");
 
             //permissions: collections -> jobs
-            collections_jobs_enabled = jsonDocument.RootElement.GetProperty("collections_jobs_enabled").GetBoolean();
-            collections_jobs_add = jsonDocument.RootElement.GetProperty("collections_jobs_add").GetBoolean();
-            collections_jobs_edit = jsonDocument.RootElement.GetProperty("collections_jobs_edit").GetBoolean();
-            collections_jobs_delete = jsonDocument.RootElement.GetProperty("collections_jobs_delete").GetBoolean();
+            collections_jobs_enabled = GetBoolProperty(root, "collections_jobs_enabled");
+            collections_jobs_add = GetBoolProperty(root, "collections_jobs_add");
+            collections_jobs_edit = GetBoolProperty(root, "collections_jobs_edit");
+            collections_jobs_delete = GetBoolProperty(root, "collections_jobs_delete");
 
             //permissions: collections -> files
-            collections_files_enabled = jsonDocument.RootElement.GetProperty("collections_files_enabled").GetBoolean();
-            collections_files_add = jsonDocument.RootElement.GetProperty("collections_files_add").GetBoolean();
-            collections_files_edit = jsonDocument.RootElement.GetProperty("collections_files_edit").GetBoolean();
-            collections_files_delete = jsonDocument.RootElement.GetProperty("collections_files_delete").GetBoolean();
-            collections_files_netlock = jsonDocument.RootElement.GetProperty("collections_files_netlock").GetBoolean();
+            collections_files_enabled = GetBoolProperty(root, "collections_files_enabled");
+            collections_files_add = GetBoolProperty(root, "collections_files_add");
+            collections_files_edit = GetBoolProperty(root, "collections_files_edit");
 
             //permissions: events
-            events_enabled = jsonDocument.RootElement.GetProperty("events_enabled").GetBoolean();
+            events_enabled = GetBoolProperty(root, "events_enabled");
 
             //permissions: users
-            users_enabled = jsonDocument.RootElement.GetProperty("users_enabled").GetBoolean();
-            users_add = jsonDocument.RootElement.GetProperty("users_add").GetBoolean();
-            users_manage = jsonDocument.RootElement.GetProperty("users_manage").GetBoolean();
-            users_edit = jsonDocument.RootElement.GetProperty("users_edit").GetBoolean();
-            users_delete = jsonDocument.RootElement.GetProperty("users_delete").GetBoolean();
+            users_enabled = GetBoolProperty(root, "users_enabled");
+            users_add = GetBoolProperty(root, "users_add");
+            users_manage = GetBoolProperty(root, "users_manage");
+            users_edit = GetBoolProperty(root, "users_edit");
+            users_delete = GetBoolProperty(root, "users_delete");
 
             //permissions: settings
-            settings_enabled = jsonDocument.RootElement.GetProperty("settings_enabled").GetBoolean();
+            settings_enabled = GetBoolProperty(root, "settings_enabled");
 
             //permissions: settings -> notifications
-            settings_notifications_enabled = jsonDocument.RootElement.GetProperty("settings_notifications_enabled").GetBoolean();
+            settings_notifications_enabled = GetBoolProperty(root, "settings_notifications_enabled");
 
             //permissions: settings -> notifications -> mail    
-            settings_notifications_mail_enabled = jsonDocument.RootElement.GetProperty("settings_notifications_mail_enabled").GetBoolean();
-            settings_notifications_mail_add = jsonDocument.RootElement.GetProperty("settings_notifications_mail_add").GetBoolean();
-            settings_notifications_mail_smtp = jsonDocument.RootElement.GetProperty("settings_notifications_mail_smtp").GetBoolean();
-            settings_notifications_mail_test = jsonDocument.RootElement.GetProperty("settings_notifications_mail_test").GetBoolean();
-            settings_notifications_mail_edit = jsonDocument.RootElement.GetProperty("settings_notifications_mail_edit").GetBoolean();
-            settings_notifications_mail_delete = jsonDocument.RootElement.GetProperty("settings_notifications_mail_delete").GetBoolean();
+            settings_notifications_mail_enabled = GetBoolProperty(root, "settings_notifications_mail_enabled");
+            settings_notifications_mail_add = GetBoolProperty(root, "settings_notifications_mail_add");
+            settings_notifications_mail_smtp = GetBoolProperty(root, "settings_notifications_mail_smtp");
+            settings_notifications_mail_test = GetBoolProperty(root, "settings_notifications_mail_test");
+            settings_notifications_mail_edit = GetBoolProperty(root, "settings_notifications_mail_edit");
+            settings_notifications_mail_delete = GetBoolProperty(root, "settings_notifications_mail_delete");
 
             //permissions: settings -> notifications -> ms teams
-            settings_notifications_microsoft_teams_enabled = jsonDocument.RootElement.GetProperty("settings_notifications_microsoft_teams_enabled").GetBoolean();
-            settings_notifications_microsoft_teams_add = jsonDocument.RootElement.GetProperty("settings_notifications_microsoft_teams_add").GetBoolean();
-            settings_notifications_microsoft_teams_test = jsonDocument.RootElement.GetProperty("settings_notifications_microsoft_teams_test").GetBoolean();
-            settings_notifications_microsoft_teams_edit = jsonDocument.RootElement.GetProperty("settings_notifications_microsoft_teams_edit").GetBoolean();
-            settings_notifications_microsoft_teams_delete = jsonDocument.RootElement.GetProperty("settings_notifications_microsoft_teams_delete").GetBoolean();
+            settings_notifications_microsoft_teams_enabled = GetBoolProperty(root, "settings_notifications_microsoft_teams_enabled");
+            settings_notifications_microsoft_teams_add = GetBoolProperty(root, "settings_notifications_microsoft_teams_add");
+            settings_notifications_microsoft_teams_test = GetBoolProperty(root, "settings_notifications_microsoft_teams_test");
+            settings_notifications_microsoft_teams_edit = GetBoolProperty(root, "settings_notifications_microsoft_teams_edit");
+            settings_notifications_microsoft_teams_delete = GetBoolProperty(root, "settings_notifications_microsoft_teams_delete");
 
             //permissions: settings -> notifications -> telegram
-            settings_notifications_telegram_enabled = jsonDocument.RootElement.GetProperty("settings_notifications_telegram_enabled").GetBoolean();
-            settings_notifications_telegram_add = jsonDocument.RootElement.GetProperty("settings_notifications_telegram_add").GetBoolean();
-            settings_notifications_telegram_test = jsonDocument.RootElement.GetProperty("settings_notifications_telegram_test").GetBoolean();
-            settings_notifications_telegram_edit = jsonDocument.RootElement.GetProperty("settings_notifications_telegram_edit").GetBoolean();
-            settings_notifications_telegram_delete = jsonDocument.RootElement.GetProperty("settings_notifications_telegram_delete").GetBoolean();
+            settings_notifications_telegram_enabled = GetBoolProperty(root, "settings_notifications_telegram_enabled");
+            settings_notifications_telegram_add = GetBoolProperty(root, "settings_notifications_telegram_add");
+            settings_notifications_telegram_test = GetBoolProperty(root, "settings_notifications_telegram_test");
+            settings_notifications_telegram_edit = GetBoolProperty(root, "settings_notifications_telegram_edit");
+            settings_notifications_telegram_delete = GetBoolProperty(root, "settings_notifications_telegram_delete");
 
             //permissions: settings -> notifications -> ntfysh
-            settings_notifications_ntfysh_enabled = jsonDocument.RootElement.GetProperty("settings_notifications_ntfysh_enabled").GetBoolean();
-            settings_notifications_ntfysh_add = jsonDocument.RootElement.GetProperty("settings_notifications_ntfysh_add").GetBoolean();
-            settings_notifications_ntfysh_test = jsonDocument.RootElement.GetProperty("settings_notifications_ntfysh_test").GetBoolean();
-            settings_notifications_ntfysh_edit = jsonDocument.RootElement.GetProperty("settings_notifications_ntfysh_edit").GetBoolean();
-            settings_notifications_ntfysh_delete = jsonDocument.RootElement.GetProperty("settings_notifications_ntfysh_delete").GetBoolean();
+            settings_notifications_ntfysh_enabled = GetBoolProperty(root, "settings_notifications_ntfysh_enabled");
+            settings_notifications_ntfysh_add = GetBoolProperty(root, "settings_notifications_ntfysh_add");
+            settings_notifications_ntfysh_test = GetBoolProperty(root, "settings_notifications_ntfysh_test");
+            settings_notifications_ntfysh_edit = GetBoolProperty(root, "settings_notifications_ntfysh_edit");
+            settings_notifications_ntfysh_delete = GetBoolProperty(root, "settings_notifications_ntfysh_delete");
             
             //permissions: settings -> notifications -> webhook
-            settings_notifications_webhook_enabled = jsonDocument.RootElement.GetProperty("settings_notifications_webhook_enabled").GetBoolean();
-            settings_notifications_webhook_add = jsonDocument.RootElement.GetProperty("settings_notifications_webhook_add").GetBoolean();
-            settings_notifications_webhook_test = jsonDocument.RootElement.GetProperty("settings_notifications_webhook_test").GetBoolean();
-            settings_notifications_webhook_edit = jsonDocument.RootElement.GetProperty("settings_notifications_webhook_edit").GetBoolean();
-            settings_notifications_webhook_delete = jsonDocument.RootElement.GetProperty("settings_notifications_webhook_delete").GetBoolean();
+            settings_notifications_webhook_enabled = GetBoolProperty(root, "settings_notifications_webhook_enabled");
+            settings_notifications_webhook_add = GetBoolProperty(root, "settings_notifications_webhook_add");
+            settings_notifications_webhook_test = GetBoolProperty(root, "settings_notifications_webhook_test");
+            settings_notifications_webhook_edit = GetBoolProperty(root, "settings_notifications_webhook_edit");
+            settings_notifications_webhook_delete = GetBoolProperty(root, "settings_notifications_webhook_delete");
 
-            settings_system_enabled = jsonDocument.RootElement.GetProperty("settings_system_enabled").GetBoolean();
-            settings_protocols_enabled = jsonDocument.RootElement.GetProperty("settings_protocols_enabled").GetBoolean();
+            settings_system_enabled = GetBoolProperty(root, "settings_system_enabled");
+            settings_protocols_enabled = GetBoolProperty(root, "settings_protocols_enabled");
         }
         catch (Exception ex)
         {

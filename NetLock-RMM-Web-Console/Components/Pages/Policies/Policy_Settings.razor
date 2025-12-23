@@ -72,7 +72,8 @@
 
             @if (permissions_policies_edit)
             {
-                <MudButton Class="mt-5 mr-2" Size="Size.Small" Variant="Variant.Filled" OnClick="@Save_Policy" Color="Color.Success" StartIcon="@Icons.Material.Filled.Save">@Localizer["save"]</MudButton>                
+                <MudButton Class="mt-5 mr-2" Size="Size.Small" Variant="Variant.Filled" OnClick="@Save_Policy" Color="Color.Success" StartIcon="@Icons.Material.Filled.Save">@Localizer["save"]</MudButton>
+                <MudButton Class="mt-5 mr-2" Size="Size.Small" Variant="Variant.Filled" OnClick="@Duplicate_Policy" Color="Color.Info" StartIcon="@Icons.Material.Filled.ContentCopy">Duplicate</MudButton>
             }
 
             @if (permissions_policies_delete)
@@ -554,6 +555,7 @@
                                         <MudCheckBox Class="ml-2" T="bool" @bind-Value="@antivirus_notifications_netlock_microsoft_teams" Label="Microsoft Teams" Color="Color.Primary" Disabled="@(!antivirus_enabled)" />
                                         <MudCheckBox Class="ml-2" T="bool" @bind-Value="@antivirus_notifications_netlock_telegram" Label="Telegram" Color="Color.Primary" Disabled="@(!antivirus_enabled)" />
                                         <MudCheckBox Class="ml-2" T="bool" @bind-Value="@antivirus_notifications_netlock_ntfy_sh" Label="NTFY.SH" Color="Color.Primary" Disabled="@(!antivirus_enabled)" />
+                                        <MudCheckBox Class="ml-2" T="bool" @bind-Value="@antivirus_notifications_netlock_webhook" Label="Webhook" Color="Color.Primary" Disabled="@(!antivirus_enabled)" />
                                     </MudPaper>
 
                                 </MudTabPanel>
@@ -1100,6 +1102,7 @@
     public bool antivirus_notifications_netlock_microsoft_teams = true;
     public bool antivirus_notifications_netlock_telegram = true;
     public bool antivirus_notifications_netlock_ntfy_sh = true;
+    public bool antivirus_notifications_netlock_webhook = true;
 
     public class Antivirus_Settings
     {
@@ -1173,6 +1176,7 @@
         public bool notifications_netlock_microsoft_teams { get; set; }
         public bool notifications_netlock_telegram { get; set; }
         public bool notifications_netlock_ntfy_sh { get; set; }
+        public bool notifications_netlock_webhook { get; set; }
     }
 
     public class Antivirus_Exclusions
@@ -1351,6 +1355,7 @@
                     notifications_netlock_microsoft_teams = antivirus_notifications_netlock_microsoft_teams,
                     notifications_netlock_telegram = antivirus_notifications_netlock_telegram,
                     notifications_netlock_ntfy_sh = antivirus_notifications_netlock_ntfy_sh,
+                    notifications_netlock_webhook = antivirus_notifications_netlock_webhook,
                 };
 
             // Konvertiere das AntivirusPolicy-Objekt in ein JSON-String.
@@ -1646,6 +1651,7 @@
             antivirus_notifications_netlock_microsoft_teams = jsonDocument.RootElement.GetProperty("notifications_netlock_microsoft_teams").GetBoolean();
             antivirus_notifications_netlock_telegram = jsonDocument.RootElement.GetProperty("notifications_netlock_telegram").GetBoolean();
             antivirus_notifications_netlock_ntfy_sh = jsonDocument.RootElement.GetProperty("notifications_netlock_ntfy_sh").GetBoolean();
+            antivirus_notifications_netlock_webhook = jsonDocument.RootElement.GetProperty("notifications_netlock_webhook").GetBoolean();
         }
         catch (Exception ex)
         {
@@ -3413,4 +3419,38 @@
 
         show_delete_policy_dialog_open = false;
     }
+
+    private async Task Duplicate_Policy()
+    {
+        try
+        {
+            var options = new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                BackgroundClass = "dialog-blurring",
+            };
+
+            var parameters = new DialogParameters
+            {
+                { "OriginalPolicyName", policy_name }
+            };
+
+            var dialog = await DialogService.ShowAsync<Dialogs.Duplicate_Policy_Dialog>(string.Empty, parameters, options);
+            var result = await dialog.Result;
+
+            if (!result.Canceled)
+            {
+                // Redirect to policies overview after a short delay
+                await Task.Delay(1500);
+                NavigationManager.NavigateTo("/policies");
+            } 
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("/policy_settings -> Duplicate_Policy", "Exception", ex.ToString());
+        }
+    }
 }
+

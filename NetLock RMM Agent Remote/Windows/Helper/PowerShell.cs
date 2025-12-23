@@ -42,7 +42,7 @@ namespace Windows.Helper
             }
         }
         
-        public static string Execute_Script(string type, string script, int timeout = 360) // timeout in minutes
+        public static string Execute_Script(string type, string script, int timeout = 0) // timeout in minutes
         {
             string path = String.Empty;
             Process cmd_process = null;
@@ -53,9 +53,15 @@ namespace Windows.Helper
 
                 Logging.PowerShell("Helper.Powershell.Execute_Script", "Trying to execute script", type);
 
+                // Set timeout to 60 minutes if no timeout is set, otherwise convert minutes to milliseconds
+                if (timeout == 0)
+                    timeout = 3600000; // 60 minutes in milliseconds
+                else
+                    timeout = timeout * 60 * 1000; // Convert minutes to milliseconds
+                
                 if (String.IsNullOrEmpty(script))
                 {
-                    Logging.Error("Helper.Powershell.Execute_Script", "Script is empty", "");
+                    Logging.Error("Helper.Powershell.Execute_Script", "Script is empty", String.Empty);
                     return "Error: Script is empty";
                 }
 
@@ -76,7 +82,7 @@ namespace Windows.Helper
 
                 if (String.IsNullOrWhiteSpace(decoded_script))
                 {
-                    Logging.Error("Helper.Powershell.Execute_Script", "Decoded script is empty", "");
+                    Logging.Error("Helper.Powershell.Execute_Script", "Decoded script is empty", String.Empty);
                     return "Error: Decoded script is empty";
                 }
 
@@ -113,27 +119,19 @@ namespace Windows.Helper
                 cmd_process.Start();
                 cmd_process.BeginOutputReadLine();
                 cmd_process.BeginErrorReadLine();
-
-                // Handle timeout
-                timeout = timeout * 1000 * 60; // Convert minutes to milliseconds
                 
+                // Wait for process to exit with timeout
                 bool exited = cmd_process.WaitForExit(timeout);
-
+                
                 if (!exited)
                 {
-                    // Process didn't finish in time, kill it
-                    try
-                    {
-                        cmd_process.Kill(true); // Kill entire process tree
-                        Logging.Error("Helper.Powershell.Execute_Script", "Script execution timed out", $"Timeout: {timeout}ms");
-                        return $"Error: Script execution timed out after {timeout}ms";
-                    }
-                    catch (Exception killEx)
-                    {
-                        Logging.Error("Helper.Powershell.Execute_Script", "Failed to kill timed out process", killEx.ToString());
-                    }
+                    cmd_process.Kill(true);
+                    cmd_process.WaitForExit(); // Ensure async streams are flushed
+                    string timeoutMessage = $"Error: Script execution timed out after {timeout / 60000} minutes.";
+                    Logging.Error("Helper.Powershell.Execute_Script", "Script execution timed out", $"Timeout: {timeout}ms");
+                    return timeoutMessage;
                 }
-
+                
                 // Wait for async output reading to complete
                 cmd_process.WaitForExit();
 
@@ -183,7 +181,7 @@ namespace Windows.Helper
                 }
 
                 // Clean up temporary script file
-                if (!String.IsNullOrEmpty(path) && File.Exists(path))
+                if (!String.IsNullOrWhiteSpace(path) && File.Exists(path))
                 {
                     try
                     {

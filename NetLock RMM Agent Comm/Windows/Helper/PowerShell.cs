@@ -42,52 +42,156 @@ namespace Windows.Helper
             }
         }
 
-        public static string Execute_Script(string type, string script)
+        public static string Execute_Script(string type, string script, int timeout = 0) // timeout in minutes
         {
             string path = String.Empty;
+            Process cmd_process = null;
 
             try
             {
                 Global.Initialization.Health.Check_Directories();
 
-                Logging.PowerShell("Helper.Powershell.Execute_Script", "Trying to execute command", type + "script:" + Environment.NewLine + script);
+                Logging.PowerShell("Helper.Powershell.Execute_Script", "Trying to execute script", type);
 
+                // Set timeout to 60 minutes if no timeout is set, otherwise convert minutes to milliseconds
+                if (timeout == 0)
+                    timeout = 3600000; // 60 minutes in milliseconds
+                else
+                    timeout = timeout * 60 * 1000; // Convert minutes to milliseconds
+                
                 if (String.IsNullOrEmpty(script))
                 {
-                    Logging.Error("Helper.Powershell.Execute_Script", "Script is empty", "");
-                    return "-";
+                    Logging.Error("Helper.Powershell.Execute_Script", "Script is empty", String.Empty);
+                    return "Error: Script is empty";
                 }
 
-                path = Application_Paths.program_data_scripts + @"\" + Guid.NewGuid() + ".ps1";
+                // Validate base64
+                byte[] script_data;
+                string decoded_script;
+                
+                try
+                {
+                    script_data = Convert.FromBase64String(script);
+                    decoded_script = Encoding.UTF8.GetString(script_data);
+                }
+                catch (FormatException ex)
+                {
+                    Logging.Error("Helper.Powershell.Execute_Script", "Invalid Base64 script", ex.Message);
+                    return "Error: Invalid Base64 encoding";
+                }
 
-                //Decode script
-                byte[] script_data = Convert.FromBase64String(script);
-                string decoded_script = Encoding.UTF8.GetString(script_data);
+                if (String.IsNullOrWhiteSpace(decoded_script))
+                {
+                    Logging.Error("Helper.Powershell.Execute_Script", "Decoded script is empty", String.Empty);
+                    return "Error: Decoded script is empty";
+                }
 
+                // Create temporary script file
+                path = Path.Combine(Application_Paths.program_data_scripts, Guid.NewGuid() + ".ps1");
                 File.WriteAllText(path, decoded_script);
 
-                Process cmd_process = new Process();
+                // Execute script
+                cmd_process = new Process();
                 cmd_process.StartInfo.UseShellExecute = false;
                 cmd_process.StartInfo.RedirectStandardOutput = true;
+                cmd_process.StartInfo.RedirectStandardError = true;
                 cmd_process.StartInfo.CreateNoWindow = true; 
                 cmd_process.StartInfo.FileName = "powershell.exe";
-                cmd_process.StartInfo.Arguments = "-executionpolicy bypass -file \"" + path + "\"";
-                cmd_process.Start();
-                string result = cmd_process.StandardOutput.ReadToEnd();
-                cmd_process.WaitForExit(120000);
+                cmd_process.StartInfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + path + "\"";
+                
+                // Use StringBuilder for better performance when reading large outputs
+                StringBuilder output = new StringBuilder();
+                StringBuilder error = new StringBuilder();
 
-                Logging.PowerShell("Helper.Powershell.Execute_Script", "Command execution successfully", Environment.NewLine + " Result:" + result);
+                // Asynchronous output reading to avoid deadlocks
+                cmd_process.OutputDataReceived += (sender, e) =>
+                {
+                    if (e.Data != null)
+                        output.AppendLine(e.Data);
+                };
+
+                cmd_process.ErrorDataReceived += (sender, e) =>
+                {
+                    if (e.Data != null)
+                        error.AppendLine(e.Data);
+                };
+
+                cmd_process.Start();
+                cmd_process.BeginOutputReadLine();
+                cmd_process.BeginErrorReadLine();
+                
+                // Wait for process to exit with timeout
+                bool exited = cmd_process.WaitForExit(timeout);
+                
+                if (!exited)
+                {
+                    cmd_process.Kill(true);
+                    cmd_process.WaitForExit(); // Ensure async streams are flushed
+                    string timeoutMessage = $"Error: Script execution timed out after {timeout / 60000} minutes.";
+                    Logging.Error("Helper.Powershell.Execute_Script", "Script execution timed out", $"Timeout: {timeout}ms");
+                    return timeoutMessage;
+                }
+                
+                // Wait for async output reading to complete
+                cmd_process.WaitForExit();
+
+                string result = output.ToString();
+                string errorOutput = error.ToString();
+
+                if (!String.IsNullOrWhiteSpace(errorOutput))
+                {
+                    Logging.Error("Helper.Powershell.Execute_Script", "Script produced error output", errorOutput);
+                    result += Environment.NewLine + "STDERR: " + errorOutput;
+                }
+
+                int exitCode = cmd_process.ExitCode;
+                if (exitCode != 0)
+                {
+                    Logging.Error("Helper.Powershell.Execute_Script", $"Script exited with code {exitCode}", errorOutput);
+                    result += Environment.NewLine + $"Exit Code: {exitCode}";
+                }
+                else
+                {
+                    Logging.PowerShell("Helper.Powershell.Execute_Script", "Script execution successful", $"Exit code: {exitCode}");
+                }
+
                 return result;
             }
             catch (Exception ex)
             {
-                Logging.Error("Helper.Powershell.Execute_Script", "Failed executing script. Type: " + type + " Script: " + script, ex.ToString());
-                return "Error: " + ex.ToString();
+                Logging.Error("Helper.Powershell.Execute_Script", "Failed executing script. Type: " + type, ex.ToString());
+                return "Error: " + ex.Message;
             }
             finally
             {
-                if (File.Exists(path))
-                    File.Delete(path);
+                // Ensure process is disposed
+                if (cmd_process != null)
+                {
+                    try
+                    {
+                        if (!cmd_process.HasExited)
+                            cmd_process.Kill(true);
+                        
+                        cmd_process.Dispose();
+                    }
+                    catch
+                    {
+                        // Ignore disposal errors
+                    }
+                }
+
+                // Clean up temporary script file
+                if (!String.IsNullOrWhiteSpace(path) && File.Exists(path))
+                {
+                    try
+                    {
+                        File.Delete(path);
+                    }
+                    catch (Exception deleteEx)
+                    {
+                        Logging.Error("Helper.Powershell.Execute_Script", "Failed to delete temporary script file", deleteEx.ToString());
+                    }
+                }
             }
         }
     }

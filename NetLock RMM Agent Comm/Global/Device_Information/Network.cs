@@ -123,7 +123,7 @@ namespace Global.Device_Information
                     List<string> network_adapterJsonList = new List<string>();
 
                     // Run the 'ip link' command to get a list of network adapters
-                    string output = Linux.Helper.Bash.Execute_Script("Network_Adapter_Information", false, "ip link show");
+                    string output = Linux.Helper.Bash.Execute_Script("Network_Adapter_Information", false, "ip link show", 0);
 
                     // Split the output into individual network adapters
                     var networkAdapters = output.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
@@ -134,7 +134,7 @@ namespace Global.Device_Information
                         string adapterName = adapterDetails[1].Trim();
 
                         // Run the 'ip' command to get IP address and other details for each adapter
-                        string output2 = Linux.Helper.Bash.Execute_Script("", false, $"ip addr show {adapterName}"); 
+                        string output2 = Linux.Helper.Bash.Execute_Script("", false, $"ip addr show {adapterName}", 0); 
 
                         // Parse the necessary information from the second command output
                         string ipv4Address = "N/A";
@@ -205,7 +205,7 @@ namespace Global.Device_Information
                     List<string> network_adapterJsonList = new List<string>();
 
                     // Execute the 'ifconfig' command to get the network adapter information
-                    string output = MacOS.Helper.Zsh.Execute_Script("Network_Adapter_Information", false, "ifconfig -a");
+                    string output = MacOS.Helper.Zsh.Execute_Script("Network_Adapter_Information", false, "ifconfig -a", 0);
 
                     // Divide the output into individual adapter sections
                     var networkAdapters = output.Split(new[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries);
@@ -221,7 +221,7 @@ namespace Global.Device_Information
 
                         try
                         {
-                            string networksetupOutput = MacOS.Helper.Zsh.Execute_Script("Network_Adapter_Information", false, "networksetup -listallhardwareports");
+                            string networksetupOutput = MacOS.Helper.Zsh.Execute_Script("Network_Adapter_Information", false, "networksetup -listallhardwareports", 0);
                             var match = Regex.Match(networksetupOutput, $"Hardware Port: (.+?)\\s+Device: {adapterName}");
                             if (match.Success)
                             {
@@ -267,7 +267,7 @@ namespace Global.Device_Information
                         // DHCP status can be checked using ipconfig (if available)
                         string dhcp_enabled = "N/A";
 
-                        var dhcpMatch = Zsh.Execute_Script("Network_Adapter_Information", false, $"ipconfig getpacket {adapterName}");
+                        var dhcpMatch = Zsh.Execute_Script("Network_Adapter_Information", false, $"ipconfig getpacket {adapterName}", 0);
                         if (!string.IsNullOrEmpty(dhcpMatch) && dhcpMatch.Contains("dhcp"))
                             dhcp_enabled = "True";
                         else
@@ -275,7 +275,7 @@ namespace Global.Device_Information
 
                         // Subnet mask extraction (ifconfig example)
                         string subnet_mask = "N/A";
-                        var subnetMatch = Zsh.Execute_Script("Network_Adapter_Information", false, $"ifconfig {adapterName}");
+                        var subnetMatch = Zsh.Execute_Script("Network_Adapter_Information", false, $"ifconfig {adapterName}", 0);
                         var subnetMaskMatch = Regex.Match(subnetMatch, @"netmask\s+([a-fA-F0-9:]+)");
 
                         if (subnetMaskMatch.Success)
@@ -381,7 +381,7 @@ namespace Global.Device_Information
                 if (OperatingSystem.IsLinux())
                 {
                     // Check whether UFW is installed
-                    string ufwCheck = Bash.Execute_Script("Check_UFW_Installed", false, "command -v ufw");
+                    string ufwCheck = Bash.Execute_Script("Check_UFW_Installed", false, "command -v ufw", 0);
 
                     if (string.IsNullOrWhiteSpace(ufwCheck))
                     {
@@ -391,7 +391,7 @@ namespace Global.Device_Information
                     }
 
                     // Check the status of the firewall
-                    string firewallStatus = Bash.Execute_Script("Check_Firewall_Status", false, "ufw status");
+                    string firewallStatus = Bash.Execute_Script("Check_Firewall_Status", false, "ufw status", 0);
 
                     // Check whether UFW is active
                     if (firewallStatus.Contains("active"))
@@ -411,7 +411,7 @@ namespace Global.Device_Information
                     // 2 = On for essential services
 
                     // Check if the firewall is enabled
-                    string firewallStatus = Zsh.Execute_Script("Firewall_Status", false, "defaults read /Library/Preferences/com.apple.alf globalstate");
+                    string firewallStatus = Zsh.Execute_Script("Firewall_Status", false, "defaults read /Library/Preferences/com.apple.alf globalstate", 0);
 
                     if (firewallStatus.Contains("1"))
                     {

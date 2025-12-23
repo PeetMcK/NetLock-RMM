@@ -26,11 +26,11 @@ namespace Windows.Microsoft_Defender_Antivirus
 
                     using (JsonDocument document = JsonDocument.Parse(Windows_Worker.policy_antivirus_settings_json))
                     {
-                        JsonElement enabled_element = document.RootElement.GetProperty("enabled");
-                        enabled = Convert.ToBoolean(enabled_element.ToString());
+                        if (document.RootElement.TryGetProperty("enabled", out JsonElement enabled_element))
+                            enabled = enabled_element.GetBoolean();
 
-                        JsonElement security_center_tray_element = document.RootElement.GetProperty("security_center_tray");
-                        security_center_tray = Convert.ToBoolean(security_center_tray_element.ToString());
+                        if (document.RootElement.TryGetProperty("security_center_tray", out JsonElement security_center_tray_element))
+                            security_center_tray = security_center_tray_element.GetBoolean();
                     }
 
                     if (enabled)
@@ -38,7 +38,6 @@ namespace Windows.Microsoft_Defender_Antivirus
                         //Check if tray icon should be displayed
                         if (!security_center_tray)
                             Kill_Security_Center_Tray_Icon();
-
 
                         Windows_Worker.microsoft_defender_antivirus_notifications_json = Get_Notifications_Json();
 
@@ -129,8 +128,8 @@ namespace Windows.Microsoft_Defender_Antivirus
 
                 using (JsonDocument document = JsonDocument.Parse(Windows_Worker.policy_antivirus_settings_json))
                 {
-                    JsonElement check_hourly_signatures_element = document.RootElement.GetProperty("check_hourly_signatures");
-                    check_hourly_signatures = Convert.ToBoolean(check_hourly_signatures_element.ToString());
+                    if (document.RootElement.TryGetProperty("check_hourly_signatures", out JsonElement check_hourly_signatures_element))
+                        check_hourly_signatures = check_hourly_signatures_element.GetBoolean();
                 }
 
                 if (check_hourly_signatures)
@@ -179,20 +178,20 @@ namespace Windows.Microsoft_Defender_Antivirus
 
                 using (JsonDocument document = JsonDocument.Parse(Windows_Worker.policy_antivirus_settings_json))
                 {
-                    JsonElement notifications_netlock_mail_element = document.RootElement.GetProperty("notifications_netlock_mail");
-                    notifications_netlock_mail = notifications_netlock_mail_element.GetBoolean();
+                    if (document.RootElement.TryGetProperty("notifications_netlock_mail", out JsonElement notifications_netlock_mail_element))
+                        notifications_netlock_mail = notifications_netlock_mail_element.GetBoolean();
 
-                    JsonElement notifications_netlock_microsoft_teams_element = document.RootElement.GetProperty("notifications_netlock_microsoft_teams");
-                    notifications_netlock_microsoft_teams = notifications_netlock_microsoft_teams_element.GetBoolean();
+                    if (document.RootElement.TryGetProperty("notifications_netlock_microsoft_teams", out JsonElement notifications_netlock_microsoft_teams_element))
+                        notifications_netlock_microsoft_teams = notifications_netlock_microsoft_teams_element.GetBoolean();
 
-                    JsonElement notifications_netlock_telegram_element = document.RootElement.GetProperty("notifications_netlock_telegram");
-                    notifications_netlock_telegram = notifications_netlock_telegram_element.GetBoolean();
+                    if (document.RootElement.TryGetProperty("notifications_netlock_telegram", out JsonElement notifications_netlock_telegram_element))
+                        notifications_netlock_telegram = notifications_netlock_telegram_element.GetBoolean();
 
-                    JsonElement notifications_netlock_ntfy_sh_element = document.RootElement.GetProperty("notifications_netlock_ntfy_sh");
-                    notifications_netlock_ntfy_sh = notifications_netlock_ntfy_sh_element.GetBoolean();
+                    if (document.RootElement.TryGetProperty("notifications_netlock_ntfy_sh", out JsonElement notifications_netlock_ntfy_sh_element))
+                        notifications_netlock_ntfy_sh = notifications_netlock_ntfy_sh_element.GetBoolean();
                     
-                    JsonElement notifications_netlock_webhook_element = document.RootElement.GetProperty("notifications_netlock_webhook");
-                    notifications_netlock_webhook = notifications_netlock_webhook_element.GetBoolean();
+                    if (document.RootElement.TryGetProperty("notifications_netlock_webhook", out JsonElement notifications_netlock_webhook_element))
+                        notifications_netlock_webhook = notifications_netlock_webhook_element.GetBoolean();
                 }
 
                 // Create notifications_json

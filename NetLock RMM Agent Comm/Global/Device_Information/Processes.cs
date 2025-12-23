@@ -207,7 +207,7 @@ namespace Global.Device_Information
                 {
                     int processorCount = Environment.ProcessorCount;
 
-                    string processes_string = Linux.Helper.Bash.Execute_Script("Collect Application", false, "ps -eo pid,ppid,comm,user,pcpu,pmem,etime,cmd --sort=-pcpu -w");
+                    string processes_string = Linux.Helper.Bash.Execute_Script("Collect Application", false, "ps -eo pid,ppid,comm,user,pcpu,pmem,etime,cmd --sort=-pcpu -w", 0);
 
                     Logging.Device_Information("Device_Information.Process_List.Collect", "ps output", processes_string);
 
@@ -248,7 +248,7 @@ namespace Global.Device_Information
                         string commandline = string.Join(" ", process_info.Skip(7));
 
                         // Get process path
-                        string processPath = Linux.Helper.Bash.Execute_Script("Collect Applications", false, $"readlink -f /proc/{pid}/exe");
+                        string processPath = Linux.Helper.Bash.Execute_Script("Collect Applications", false, $"readlink -f /proc/{pid}/exe", 0);
 
                         Process_Data processInfo = new Process_Data
                         {
@@ -281,7 +281,7 @@ namespace Global.Device_Information
                     int processorCount = Environment.ProcessorCount;
 
                     // macOS-kompatibler ps-Befehl
-                    string processes_string = MacOS.Helper.Zsh.Execute_Script("Collect", false, "ps -Ao pid,ppid,comm,user,%cpu,%mem,etime,command -r");
+                    string processes_string = MacOS.Helper.Zsh.Execute_Script("Collect", false, "ps -Ao pid,ppid,comm,user,%cpu,%mem,etime,command -r", 0);
 
                     Logging.Device_Information("Device_Information.Process_List.Collect", "ps output", processes_string);
 
@@ -466,7 +466,7 @@ namespace Global.Device_Information
                     {
                         // Execute `ps` command to get process information
                         string command = $"ps -p {process_id} -o %cpu";
-                        string output = MacOS.Helper.Zsh.Execute_Script("Get_CPU_Usage_By_ID", false, command);
+                        string output = MacOS.Helper.Zsh.Execute_Script("Get_CPU_Usage_By_ID", false, command, 0);
 
                         // Parse the output
                         var lines = output.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
@@ -633,7 +633,7 @@ namespace Global.Device_Information
                     try
                     {
                         // Execute `ps` command to get memory usage percentage
-                        string output = MacOS.Helper.Zsh.Execute_Script("Get_RAM_Usage_By_ID", false, $"ps -p {process_id} -o %mem");
+                        string output = MacOS.Helper.Zsh.Execute_Script("Get_RAM_Usage_By_ID", false, $"ps -p {process_id} -o %mem", 0);
 
                         // Parse the output
                         var lines = output.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
@@ -653,7 +653,7 @@ namespace Global.Device_Information
                         if (!percentage) // Return memory usage in MB
                         {
                             // Get total RAM in bytes
-                            string totalRamOutput = MacOS.Helper.Zsh.Execute_Script("Get_RAM_Usage_By_ID", false, "sysctl hw.memsize");
+                            string totalRamOutput = MacOS.Helper.Zsh.Execute_Script("Get_RAM_Usage_By_ID", false, "sysctl hw.memsize", 0);
 
                             // Parse total RAM size
                             var totalRamParts = totalRamOutput.Split(':', StringSplitOptions.RemoveEmptyEntries);
@@ -840,7 +840,7 @@ namespace Global.Device_Information
             {
                 // Execute `ps` command to get process information
                 string command = $"ps -p {process.Id} -o user";
-                string output = MacOS.Helper.Zsh.Execute_Script("Get_Process_Owner", false, command);
+                string output = MacOS.Helper.Zsh.Execute_Script("Get_Process_Owner", false, command, 0);
                 // Parse the output
                 var lines = output.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
                 if (lines.Length < 2)
@@ -868,7 +868,7 @@ namespace Global.Device_Information
             try
             {
                 // Use "getent passwd" to fetch username from UID
-                string result = Linux.Helper.Bash.Execute_Script("GetUsernameFromUid", false, $"getent passwd {uid}");
+                string result = Linux.Helper.Bash.Execute_Script("GetUsernameFromUid", false, $"getent passwd {uid}", 0);
                 if (!string.IsNullOrEmpty(result))
                 {
                     string[] parts = result.Split(':');

@@ -1,0 +1,793 @@
+@using MySqlConnector
+@using System.Data.Common
+@using System.Text.Json
+@using System.Xml.Serialization
+@using System.Text
+@using System.Text.RegularExpressions
+@using System.Text.Json.Nodes
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Microsoft.AspNetCore.DataProtection
+@using System.Globalization
+@using Microsoft.AspNetCore.SignalR.Client
+@using System.Net.Http
+@using System.Security.Claims
+@using System.Text.Json.Serialization
+
+@inject NavigationManager NavigationManager
+@inject ILocalStorageService localStorage
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+@inject IDataProtectionProvider DataProtectionProvider
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h5">Event Log Viewer (@device_name)</MudText>
+    </TitleContent>
+    <DialogContent>
+
+        @{
+            if (!remote_server_client_setup)
+            {
+                <MudAlert Class="mb-2" Severity="Severity.Error" Icon="@Icons.Material.Filled.Error">Not connected to the NetLock RMM server backend.</MudAlert>
+                <MudButton Class="mb-2" Size="Size.Small" Color="Color.Default" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.ConnectWithoutContact" FullWidth="true" OnClick="Remote_Setup_SignalR">Reconnect</MudButton>
+            }
+        }
+
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudAutocomplete T="string" @bind-Value="selected_log_name" Label="Log Name" SearchFunc="@SearchLogs" Dense="true" ResetValueOnEmptyText="false" CoerceText="true" CoerceValue="false" Disabled="@(!remote_server_client_setup || loading_overlay)" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudNumericField T="int" @bind-Value="max_entries" Label="Max Entries" Min="1" Max="10000" Disabled="@(!remote_server_client_setup || loading_overlay)" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudSelect T="byte?" @bind-Value="selected_level" Label="Level" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter" Clearable="true" Disabled="@(!remote_server_client_setup || loading_overlay)">
+                    <MudSelectItem T="byte?" Value="null">All Levels</MudSelectItem>
+                    <MudSelectItem T="byte?" Value="1">Critical</MudSelectItem>
+                    <MudSelectItem T="byte?" Value="2">Error</MudSelectItem>
+                    <MudSelectItem T="byte?" Value="3">Warning</MudSelectItem>
+                    <MudSelectItem T="byte?" Value="4">Information</MudSelectItem>
+                    <MudSelectItem T="byte?" Value="5">Verbose</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudNumericField T="int?" @bind-Value="event_id" Label="Event ID" Clearable="true" Disabled="@(!remote_server_client_setup || loading_overlay)" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudDatePicker T="DateTime?" @bind-Date="start_time" Label="Start Time" Clearable="true" Disabled="@(!remote_server_client_setup || loading_overlay)" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudDatePicker T="DateTime?" @bind-Date="end_time" Label="End Time" Clearable="true" Disabled="@(!remote_server_client_setup || loading_overlay)" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField T="string" @bind-Value="provider_name" Label="Provider Name" Clearable="true" Disabled="@(!remote_server_client_setup || loading_overlay)" />
+            </MudItem>
+        </MudGrid>
+
+        @{
+            if (loading_overlay)
+            {
+                <MudProgressLinear Size="Size.Medium" Class="mt-2 mb-2" Color="Color.Info" Indeterminate="true">
+                    <MudText Typo="Typo.body1">Loading...</MudText>
+                </MudProgressLinear>
+            }
+        }
+
+        @if (event_log_entries != null && event_log_entries.Count > 0)
+        {
+            <MudText Class="mt-3" Typo="Typo.h6">Results (@event_log_entries.Count)</MudText>
+
+            <MudTable Items="@event_log_entries" 
+                      Hover="true" 
+                      Dense="true" 
+                      Striped="true" 
+                      Filter="new Func<EventLogEntry, bool>(FilterFunc)" 
+                      SortLabel="Sort By"
+                      Class="mt-2"
+                      @bind-SelectedItem="selected_event_entry"
+                      OnRowClick="@((TableRowClickEventArgs<EventLogEntry> args) => ShowEventDetails(args.Item))">
+                <ToolBarContent>
+                    <MudTextField @bind-Value="search_string" 
+                                  Placeholder="Search" 
+                                  Adornment="Adornment.Start" 
+                                  AdornmentIcon="@Icons.Material.Filled.Search" 
+                                  IconSize="Size.Medium" 
+                                  Class="mt-0"
+                                  Immediate="true"></MudTextField>
+                </ToolBarContent>
+                <HeaderContent>
+                    <MudTh><MudTableSortLabel SortBy="new Func<EventLogEntry, object>(x => x.TimeCreated)">Time Created</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<EventLogEntry, object>(x => x.LevelValue ?? 99)">Level</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<EventLogEntry, object>(x => x.EventId ?? 0)">Event ID</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<EventLogEntry, object>(x => x.Source)">Source</MudTableSortLabel></MudTh>
+                    <MudTh>Message</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Time Created">@context.GetFormattedTimeCreated()</MudTd>
+                    <MudTd DataLabel="Level">
+                        <MudChip T="string" Color="@GetLevelColor(context.LevelValue)" Size="Size.Small">@context.Level</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Event ID">@context.EventId</MudTd>
+                    <MudTd DataLabel="Source">@context.Source</MudTd>
+                    <MudTd DataLabel="Message">@(context.Message?.Length > 100 ? context.Message.Substring(0, 100) + "..." : context.Message)</MudTd>
+                </RowTemplate>
+                <PagerContent>
+                    <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+                </PagerContent>
+            </MudTable>
+        }
+        else if (has_searched && (event_log_entries == null || event_log_entries.Count == 0))
+        {
+            <MudAlert Class="mt-3" Severity="Severity.Info" Icon="@Icons.Material.Filled.Info">
+                No event log entries found. Try adjusting your search criteria or select a different log.
+            </MudAlert>
+        }
+        else if (!string.IsNullOrEmpty(last_error_message))
+        {
+            <MudAlert Class="mt-3" Severity="Severity.Error" Icon="@Icons.Material.Filled.Error">
+                @last_error_message
+            </MudAlert>
+        }
+
+    </DialogContent>
+    <DialogActions>
+        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Default" StartIcon="@Icons.Material.Filled.Analytics" OnClick="@Load_EventLog_Stats" Disabled="@(!remote_server_client_setup || loading_overlay || string.IsNullOrEmpty(selected_log_name))">Stats</MudButton>
+        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Warning" StartIcon="@Icons.Material.Filled.DeleteSweep" OnClick="@Clear_EventLog" Disabled="@(!remote_server_client_setup || loading_overlay || string.IsNullOrEmpty(selected_log_name))">Clear Log</MudButton>
+        <MudSpacer />
+        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Search" OnClick="@Load_EventLog_Entries" Disabled="@(!remote_server_client_setup || loading_overlay || string.IsNullOrEmpty(selected_log_name))">Search</MudButton>
+        <MudButton OnClick="@Cancel" Variant="Variant.Filled" Size="@Size.Small" Color="@Color.Default">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+    [Parameter] public string device_id { get; set; }
+    [Parameter] public string device_name { get; set; }
+    [Parameter] public string tenant_guid { get; set; }
+    [Parameter] public string location_guid { get; set; }
+
+    private string netlock_username = String.Empty;
+    private string token = String.Empty;
+    private bool loading_overlay = false;
+    private string search_string = string.Empty;
+    private EventLogEntry selected_event_entry;
+    private bool has_searched = false;
+    private string last_error_message = string.Empty;
+
+    // EventLog parameters
+    private List<string> available_logs = new List<string>();
+    private string selected_log_name = "Application";
+    private int max_entries = 100;
+    private byte? selected_level = null;
+    private int? event_id = null;
+    private DateTime? start_time = null;
+    private DateTime? end_time = null;
+    private string provider_name = string.Empty;
+
+    private List<EventLogEntry> event_log_entries = new List<EventLogEntry>();
+    private EventLogStatsResponse current_log_stats = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Get the current user from the authentication state
+        var user = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+
+        // Check if user is authenticated
+        if (user?.Identity is not { IsAuthenticated: true })
+        {
+            NavigationManager.NavigateTo("/login", true);
+            return;
+        }
+
+        // Retrieve username from claims
+        netlock_username = user.FindFirst(ClaimTypes.Email)?.Value;
+
+        token = await Classes.Authentication.User.Get_Remote_Session_Token(netlock_username);
+
+        await Remote_Setup_SignalR();
+        await Load_Available_Logs();
+    }
+
+    #region Remote Communication Classes
+
+    public class Remote_Admin_Identity
+    {
+        public string token { get; set; }
+    }
+
+    public class Remote_Target_Device
+    {
+        public string device_id { get; set; }
+        public string device_name { get; set; }
+        public string location_guid { get; set; }
+        public string tenant_guid { get; set; }
+    }
+
+    public class Remote_Command
+    {
+        public int type { get; set; }
+        public bool wait_response { get; set; }
+        public string powershell_code { get; set; }
+        public int file_browser_command { get; set; }
+        public string file_browser_path { get; set; }
+        public string file_browser_path_move { get; set; }
+        public string file_browser_file_content { get; set; }
+        public string command { get; set; }
+    }
+
+    public class Remote_Root_Object
+    {
+        public Remote_Admin_Identity admin_identity { get; set; }
+        public Remote_Target_Device target_device { get; set; }
+        public Remote_Command command { get; set; }
+    }
+
+    #endregion
+
+    #region EventLog Models
+
+
+    public class EventLogResponse
+    {
+        [JsonPropertyName("success")]
+        public bool Success { get; set; }
+
+        [JsonPropertyName("log_name")]
+        public string LogName { get; set; }
+
+        [JsonPropertyName("total_entries")]
+        public int TotalEntries { get; set; }
+
+        [JsonPropertyName("entries")]
+        public List<EventLogEntry> Entries { get; set; }
+
+        [JsonPropertyName("error")]
+        public string Error { get; set; }
+
+        [JsonPropertyName("timestamp")]
+        public string Timestamp { get; set; }
+    }
+
+    public class AvailableLogsResponse
+    {
+        [JsonPropertyName("success")]
+        public bool Success { get; set; }
+
+        [JsonPropertyName("total_logs")]
+        public int TotalLogs { get; set; }
+
+        [JsonPropertyName("log_names")]
+        public List<string> LogNames { get; set; }
+
+        [JsonPropertyName("error")]
+        public string Error { get; set; }
+
+        [JsonPropertyName("timestamp")]
+        public string Timestamp { get; set; }
+    }
+
+
+    public class ClearEventLogResponse
+    {
+        [JsonPropertyName("success")]
+        public bool Success { get; set; }
+
+        [JsonPropertyName("log_name")]
+        public string LogName { get; set; }
+
+        [JsonPropertyName("message")]
+        public string Message { get; set; }
+
+        [JsonPropertyName("error")]
+        public string Error { get; set; }
+
+        [JsonPropertyName("timestamp")]
+        public string Timestamp { get; set; }
+    }
+
+    #endregion
+
+    #region Remote Server Setup
+
+    private HubConnection remote_server_client;
+    private bool remote_server_client_setup = false;
+    private string remote_admin_identity = String.Empty;
+
+    public async Task Remote_Setup_SignalR()
+    {
+        this.Snackbar.Configuration.ShowCloseIcon = true;
+        this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+
+        try
+        {
+            Remote_Admin_Identity identity = new Remote_Admin_Identity
+                {
+                    token = token
+                };
+
+            var jsonObject = new { admin_identity = identity };
+            string json = JsonSerializer.Serialize(jsonObject, new JsonSerializerOptions { WriteIndented = true });
+            remote_admin_identity = json;
+
+            remote_server_client = new HubConnectionBuilder()
+                .WithUrl(Configuration.Remote_Server.Connection_String + "/commandHub", options =>
+                {
+                    options.Headers.Add("Admin-Identity", Uri.EscapeDataString(remote_admin_identity));
+                })
+                .Build();
+
+            // Remote Shell response handler for EventLog
+            remote_server_client.On<string>("ReceiveClientResponseRemoteEventlogViewer", async (command) =>
+            {
+                Logging.Handler.Debug("Remote_EventLog_Dialog -> Remote_Setup_SignalR", "ReceiveClientResponseRemoteShell", command);
+
+                await InvokeAsync(() =>
+                {
+                    try
+                    {
+                        Console.WriteLine("Received command: " + command);
+                        string jsonResponse = command;
+
+                        // Try to parse as EventLogResponse
+                        if (jsonResponse.Contains("\"entries\""))
+                        {
+                            var response = JsonSerializer.Deserialize<EventLogResponse>(jsonResponse);
+                            if (response != null && response.Success)
+                            {
+                                event_log_entries = response.Entries ?? new List<EventLogEntry>();
+                                last_error_message = string.Empty;
+                            }
+                            else
+                            {
+                                last_error_message = response?.Error ?? "Error loading entries";
+                                event_log_entries = new List<EventLogEntry>();
+                            }
+                            has_searched = true;
+                        }
+                        // Try to parse as EventLogStatsResponse
+                        else if (jsonResponse.Contains("\"level_counts\""))
+                        {
+                            var response = JsonSerializer.Deserialize<EventLogStatsResponse>(jsonResponse);
+                            if (response != null && response.Success)
+                            {
+                                current_log_stats = response;
+                                InvokeAsync(async () => await ShowStatsDialog(response));
+                            }
+                            else
+                            {
+                                last_error_message = response?.Error ?? "Error loading stats";
+                            }
+                        }
+                        // Try to parse as ClearEventLogResponse
+                        else if (jsonResponse.Contains("\"message\"") && jsonResponse.Contains("cleared"))
+                        {
+                            var response = JsonSerializer.Deserialize<ClearEventLogResponse>(jsonResponse);
+                            if (response != null && response.Success)
+                            {
+                                Snackbar.Add(response.Message ?? "Event log cleared successfully", Severity.Success);
+                                // Refresh the entries after clearing
+                                event_log_entries.Clear();
+                                has_searched = false;
+                            }
+                            else
+                            {
+                                last_error_message = response?.Error ?? "Error clearing log";
+                            }
+                        }
+                        // Try to parse as AvailableLogsResponse
+                        else if (jsonResponse.Contains("\"log_names\""))
+                        {
+                            var response = JsonSerializer.Deserialize<AvailableLogsResponse>(jsonResponse);
+                            if (response != null && response.Success)
+                            {
+                                available_logs = response.LogNames ?? new List<string>();
+                                if (available_logs.Count > 0 && string.IsNullOrEmpty(selected_log_name))
+                                {
+                                    selected_log_name = available_logs.FirstOrDefault(l => l == "Application") ?? available_logs[0];
+                                }
+                            }
+                            else
+                            {
+                                last_error_message = response?.Error ?? "Error loading logs";
+                            }
+                            
+                            available_logs.Add("Application");
+                            available_logs.Add("System");
+                            available_logs.Add("Security");
+                            available_logs = available_logs.Distinct().ToList();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logging.Handler.Error("Remote_EventLog_Dialog", "Response parsing", ex.ToString());
+                        last_error_message = "Error parsing response: " + ex.Message;
+                    }
+                    finally
+                    {
+                        loading_overlay = false;
+                        StateHasChanged();
+                    }
+                });
+            });
+
+            await remote_server_client.StartAsync();
+            remote_server_client_setup = true;
+
+            Logging.Handler.Debug("Remote_EventLog_Dialog -> Remote_Setup_SignalR", "Connected to the remote server.", remote_server_client_setup.ToString());
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("Remote_EventLog_Dialog -> Remote_Setup_SignalR", "General error", ex.ToString());
+            Snackbar.Add("Error connecting to remote server", Severity.Error);
+        }
+    }
+
+    #endregion
+
+    #region EventLog Operations
+
+    private async Task Load_Available_Logs()
+    {
+        try
+        {
+            loading_overlay = true;
+            StateHasChanged();
+            
+            var adminIdentity = new Remote_Admin_Identity { token = token };
+            var targetDevice = new Remote_Target_Device
+                {
+                    device_id = device_id,
+                    device_name = device_name,
+                    tenant_guid = tenant_guid,
+                    location_guid = location_guid
+                };
+
+            var command = new Remote_Command
+                {
+                    type = 10,
+                    wait_response = true,
+                    command = "1" // Command "1" for getting available logs
+                };
+
+            var rootObject = new Remote_Root_Object
+                {
+                    admin_identity = adminIdentity,
+                    target_device = targetDevice,
+                    command = command
+                };
+
+            string json = JsonSerializer.Serialize(rootObject, new JsonSerializerOptions { WriteIndented = true });
+
+            if (remote_server_client_setup)
+            {
+                await remote_server_client.SendAsync("MessageReceivedFromWebconsole", json);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("Remote_EventLog_Dialog", "Load_Available_Logs", ex.ToString());
+            last_error_message = "Error loading logs: " + ex.Message;
+        }
+        finally
+        {
+            loading_overlay = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Load_EventLog_Entries()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(selected_log_name))
+            {
+                last_error_message = "Please select a log name";
+                return;
+            }
+
+            loading_overlay = true;
+            has_searched = false;
+            last_error_message = string.Empty;
+            StateHasChanged();
+
+            // Build JSON command with all parameters
+            var eventLogParameters = new
+            {
+                command = 2,
+                log_name = selected_log_name,
+                max_entries = max_entries,
+                level = selected_level,
+                event_id = event_id,
+                start_time = start_time?.ToString("yyyy-MM-dd HH:mm:ss"),
+                end_time = end_time?.ToString("yyyy-MM-dd HH:mm:ss"),
+                provider_name = string.IsNullOrWhiteSpace(provider_name) ? null : provider_name
+            };
+
+            string commandJson = JsonSerializer.Serialize(eventLogParameters);
+
+            var adminIdentity = new Remote_Admin_Identity { token = token };
+            var targetDevice = new Remote_Target_Device
+                {
+                    device_id = device_id,
+                    device_name = device_name,
+                    tenant_guid = tenant_guid,
+                    location_guid = location_guid
+                };
+
+            var command = new Remote_Command
+                {
+                    type = 11,
+                    wait_response = true,
+                    command = commandJson
+                };
+
+            var rootObject = new Remote_Root_Object
+                {
+                    admin_identity = adminIdentity,
+                    target_device = targetDevice,
+                    command = command
+                };
+
+            string json = JsonSerializer.Serialize(rootObject, new JsonSerializerOptions { WriteIndented = true });
+
+            if (remote_server_client_setup)
+            {
+                await remote_server_client.SendAsync("MessageReceivedFromWebconsole", json);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("Remote_EventLog_Dialog", "Load_EventLog_Entries", ex.ToString());
+            last_error_message = "Error loading entries: " + ex.Message;
+            has_searched = true;
+            loading_overlay = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Load_EventLog_Stats()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(selected_log_name))
+            {
+                last_error_message = "Please select a log name";
+                return;
+            }
+
+            loading_overlay = true;
+            last_error_message = string.Empty;
+            StateHasChanged();
+
+            var adminIdentity = new Remote_Admin_Identity { token = token };
+            var targetDevice = new Remote_Target_Device
+            {
+                device_id = device_id,
+                device_name = device_name,
+                tenant_guid = tenant_guid,
+                location_guid = location_guid
+            };
+
+            var command = new Remote_Command
+            {
+                type = 12,
+                wait_response = true,
+                command = selected_log_name
+            };
+
+            var rootObject = new Remote_Root_Object
+            {
+                admin_identity = adminIdentity,
+                target_device = targetDevice,
+                command = command
+            };
+
+            string json = JsonSerializer.Serialize(rootObject, new JsonSerializerOptions { WriteIndented = true });
+
+            if (remote_server_client_setup)
+            {
+                await remote_server_client.SendAsync("MessageReceivedFromWebconsole", json);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("Remote_EventLog_Dialog", "Load_EventLog_Stats", ex.ToString());
+            last_error_message = "Error loading stats: " + ex.Message;
+        }
+        finally
+        {
+            loading_overlay = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Clear_EventLog()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(selected_log_name))
+            {
+                last_error_message = "Please select a log name";
+                return;
+            }
+
+            bool? confirmed = await DialogService.ShowMessageBox(
+                "Clear Event Log",
+                $"Are you sure you want to clear the '{selected_log_name}' event log? This action cannot be undone!",
+                yesText: "Clear", cancelText: "Cancel",
+                options: new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small });
+
+            if (confirmed != true)
+                return;
+
+            loading_overlay = true;
+            last_error_message = string.Empty;
+            StateHasChanged();
+
+            var adminIdentity = new Remote_Admin_Identity { token = token };
+            var targetDevice = new Remote_Target_Device
+            {
+                device_id = device_id,
+                device_name = device_name,
+                tenant_guid = tenant_guid,
+                location_guid = location_guid
+            };
+
+            var command = new Remote_Command
+            {
+                type = 13,
+                wait_response = true,
+                command = selected_log_name
+            };
+
+            var rootObject = new Remote_Root_Object
+            {
+                admin_identity = adminIdentity,
+                target_device = targetDevice,
+                command = command
+            };
+
+            string json = JsonSerializer.Serialize(rootObject, new JsonSerializerOptions { WriteIndented = true });
+
+            if (remote_server_client_setup)
+            {
+                await remote_server_client.SendAsync("MessageReceivedFromWebconsole", json);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("Remote_EventLog_Dialog", "Clear_EventLog", ex.ToString());
+            last_error_message = "Error clearing log: " + ex.Message;
+        }
+        finally
+        {
+            loading_overlay = false;
+            StateHasChanged();
+        }
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    private Task<IEnumerable<string>> SearchLogs(string value, CancellationToken cancellationToken)
+    {
+        // If the search value is empty, return all logs
+        if (string.IsNullOrEmpty(value))
+            return Task.FromResult(available_logs.AsEnumerable());
+
+        // Filter logs based on the search value (case-insensitive)
+        return Task.FromResult(available_logs
+            .Where(log => log.Contains(value, StringComparison.InvariantCultureIgnoreCase))
+            .AsEnumerable());
+    }
+
+    private bool FilterFunc(EventLogEntry entry)
+    {
+        if (string.IsNullOrWhiteSpace(search_string))
+            return true;
+
+        if (entry.EventId?.ToString().Contains(search_string, StringComparison.OrdinalIgnoreCase) == true)
+            return true;
+        if (entry.Level?.Contains(search_string, StringComparison.OrdinalIgnoreCase) == true)
+            return true;
+        if (entry.Source?.Contains(search_string, StringComparison.OrdinalIgnoreCase) == true)
+            return true;
+        if (entry.Message?.Contains(search_string, StringComparison.OrdinalIgnoreCase) == true)
+            return true;
+        if (entry.TimeCreated?.Contains(search_string, StringComparison.OrdinalIgnoreCase) == true)
+            return true;
+        if (entry.ProviderName?.Contains(search_string, StringComparison.OrdinalIgnoreCase) == true)
+            return true;
+        if (entry.Computer?.Contains(search_string, StringComparison.OrdinalIgnoreCase) == true)
+            return true;
+
+        return false;
+    }
+
+    private Color GetLevelColor(byte? level)
+    {
+        if (!level.HasValue) return Color.Default;
+
+        return level.Value switch
+        {
+            1 => Color.Error,      // Critical
+            2 => Color.Error,      // Error
+            3 => Color.Warning,    // Warning
+            4 => Color.Info,       // Information
+            5 => Color.Default,    // Verbose
+            _ => Color.Default
+        };
+    }
+
+    private async Task ShowEventDetails(EventLogEntry entry)
+    {
+        try
+        {
+            var options = new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Large,
+                FullWidth = true,
+                BackgroundClass = "dialog-blurring"
+            };
+
+            var parameters = new DialogParameters
+            {
+                { "EventEntry", entry }
+            };
+
+            await DialogService.ShowAsync<EventLog_Details_Dialog>("Event Details", parameters, options);
+        }
+        catch (Exception e)
+        {
+            Logging.Handler.Error("Remote_EventLog_Dialog -> ShowEventDetails", "General error", e.ToString());
+        }
+    }
+
+    private async Task ShowStatsDialog(EventLogStatsResponse stats)
+    {
+        try
+        {
+            var options = new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                BackgroundClass = "dialog-blurring"
+            };
+
+            var parameters = new DialogParameters
+            {
+                { "Stats", stats }
+            };
+
+            await DialogService.ShowAsync<NetLock_RMM_Web_Console.Components.Pages.Devices.Dialogs.Remote_EventLog.EventLog_Stats_Dialog>("Event Log Statistics", parameters, options);
+        }
+        catch (Exception e)
+        {
+            Logging.Handler.Error("Remote_EventLog_Dialog -> ShowStatsDialog", "General error", e.ToString());
+        }
+    }
+
+    #endregion
+
+    private async Task Cancel()
+    {
+        if (remote_server_client_setup)
+        {
+            await remote_server_client.StopAsync();
+            remote_server_client_setup = false;
+        }
+
+        MudDialog.Cancel();
+    }
+}

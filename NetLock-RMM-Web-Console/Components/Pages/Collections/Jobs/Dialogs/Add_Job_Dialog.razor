@@ -23,6 +23,16 @@
             <MudTextField Label="@Localizer["name"]" T="string" @bind-Value="@job_name" Required="true" RequiredError="@Localizer["required"]" Immediate="@true" />
             <MudTextField Label="@Localizer["description"]" T="string" @bind-Value="@description" Required="false" RequiredError="@Localizer["required"]" Immediate="@true" />
 
+            <MudNumericField Label="Timeout" 
+                             T="int" 
+                             @bind-Value="@timeout" 
+                             Min="1" 
+                             Max="9999"
+                             Adornment="Adornment.End"
+                             AdornmentText="min"
+                             HelperText="Maximum execution time for the job. It will be terminated if it exceeds this limit."
+                             Required="true" />
+            
             <MudSelect Class="mt-3" T="string" @bind-Value="time_scheduler_type_display" Label="@Localizer["schedule"]" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
                 <MudSelectItem T="string" Value="@Localizer["schedule_system_boot"]" />
                 <MudSelectItem T="string" Value="@Localizer["schedule_date_time"]" />
@@ -205,7 +215,7 @@
         await Get_Scripts();
     }
 
-    public List<Script> scripts_list = new List<Script>();
+    public List<Collections.Scripts.Script> scripts_list = new List<Collections.Scripts.Script>();
 
     private string job_name = String.Empty;
     private string description = String.Empty;
@@ -213,6 +223,7 @@
     //private string type = String.Empty;
     private string type_display = String.Empty;
     private string script = String.Empty;
+    private int timeout = 60; // in minutes, will be converted to milliseconds on agent side
 
     private int time_scheduler_type = 0;
     private string time_scheduler_type_display = String.Empty;
@@ -241,6 +252,7 @@
         public string type { get; set; }
         public int script_id { get; set; }
         public string script { get; set; }
+        public int timeout { get; set; }
 
         public int time_scheduler_type { get; set; }
         public int time_scheduler_seconds { get; set; }
@@ -255,18 +267,6 @@
         public bool time_scheduler_friday { get; set; }
         public bool time_scheduler_saturday { get; set; }
         public bool time_scheduler_sunday { get; set; }
-    }
-
-    public class Script
-    {
-        public int id { get; set; }
-        public string name { get; set; }
-        public string date { get; set; }
-        public string author { get; set; }
-        public string description { get; set; }
-        public string platform { get; set; }
-        public string shell { get; set; }
-        public string script { get; set; }
     }
 
     [CascadingParameter]
@@ -328,7 +328,7 @@
 
     private async Task Get_Scripts()
     {
-        scripts_list = new List<Script>();
+        scripts_list = new List<Collections.Scripts.Script>();
         scripts_list.Clear();
 
         MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
@@ -353,16 +353,20 @@
                         Logging.Handler.Debug("/manage_jobs Add_Job_Dialog) -> Get_Scripts", "MySQL_Result (json)", reader["json"].ToString() ?? String.Empty); //Output the JSON
                         Logging.Handler.Debug("/manage_jobs Add_Job_Dialog) -> Get_Scripts", "MySQL_Result (id)", reader["id"].ToString() ?? String.Empty); //Output the JSON
 
-                        Script script = new Script
+                        // Extract script details from json
+                        Collections.Scripts.Script scriptJson = JsonSerializer.Deserialize<Collections.Scripts.Script>(reader["json"].ToString() ?? String.Empty);
+                        
+                        Collections.Scripts.Script script = new Collections.Scripts.Script
                         {
-                            id = Convert.ToInt32(reader["id"].ToString()),
-                            name = reader["name"].ToString() ?? String.Empty,
-                            date = reader["date"].ToString() ?? String.Empty,
-                            author = reader["author"].ToString() ?? String.Empty,
-                            description = reader["description"].ToString() ?? String.Empty,
-                            platform = reader["platform"].ToString() ?? String.Empty,
-                            shell = reader["shell"].ToString() ?? String.Empty,
-                            script = reader["script"].ToString() ?? String.Empty,
+                            id = Convert.ToInt32(reader["id"]),
+                            name = scriptJson.name,
+                            date = scriptJson.date,
+                            author = scriptJson.author,
+                            description = scriptJson.description,
+                            platform = scriptJson.platform,
+                            shell = scriptJson.shell,
+                            script = scriptJson.script,
+                            timeout = scriptJson.timeout
                         };
 
                         scripts_list.Add(script);
@@ -450,6 +454,7 @@
                     type = type_converted,
                     script_id = script_id,
                     script = await Base64.Handler.Encode(await Get_Script_Code(script_id)),
+                    timeout = timeout,
 
                     //time scheduler
                     time_scheduler_type = time_scheduler_type,

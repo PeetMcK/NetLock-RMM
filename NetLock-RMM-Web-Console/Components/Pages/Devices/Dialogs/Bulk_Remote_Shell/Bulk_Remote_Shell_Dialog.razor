@@ -65,7 +65,11 @@
                 </MudTd>
                 <MudTd DataLabel="Platform">@device.Platform</MudTd>
                 <MudTd DataLabel="Status">
-                    @if (deviceHasError.ContainsKey(device.Id) && deviceHasError[device.Id])
+                    @if (deviceTimedOut.ContainsKey(device.Id) && deviceTimedOut[device.Id])
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Timer">Timeout</MudChip>
+                    }
+                    else if (deviceHasError.ContainsKey(device.Id) && deviceHasError[device.Id])
                     {
                         <MudChip T="string" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Error">Failed</MudChip>
                     }
@@ -146,6 +150,18 @@
 
     </DialogContent>
     <DialogActions>
+        <div style="max-width: 600px;">
+            <MudNumericField Label="Timeout" 
+                             T="int" 
+                             @bind-Value="@timeout" 
+                             Min="1" 
+                             Max="9999"
+                             Adornment="Adornment.End"
+                             AdornmentText="Minute(s)"
+                             HelperText="Maximum execution time for the script. It will be terminated if it exceeds this limit."
+            />
+        </div>
+        
         <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Default" StartIcon="@Icons.Material.Filled.Code" OnClick="@Community_Scripts_Dialog">Community Scripts</MudButton>
 
         <div style="display: flex; align-items: center;">
@@ -172,18 +188,21 @@
     private bool loading_overlay = false;
     private bool expanded = false;
     private int executionProgress = 0;
-
+    private int timeout = 1;
+    
     private class DeviceInfo
     {
         public string Id { get; set; }
         public string Name { get; set; }
         public string Platform { get; set; }
     }
-
+    
     private List<DeviceInfo> deviceInfos = new List<DeviceInfo>();
     private Dictionary<string, string> deviceOutputs = new Dictionary<string, string>();
     private Dictionary<string, bool> deviceCompleted = new Dictionary<string, bool>();
     private Dictionary<string, bool> deviceHasError = new Dictionary<string, bool>();
+    private Dictionary<string, bool> deviceTimedOut = new Dictionary<string, bool>();
+    private Dictionary<string, System.Threading.Timer> deviceTimeoutTimers = new Dictionary<string, System.Threading.Timer>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -228,6 +247,7 @@
             deviceOutputs[device_id] = "";
             deviceCompleted[device_id] = false;
             deviceHasError[device_id] = false;
+            deviceTimedOut[device_id] = false;
         }
     }
 
@@ -338,8 +358,10 @@
             {
                 while (await reader.ReadAsync())
                 {
-                    await remote_shell_command_editor.SetValue(reader["script"].ToString() ?? String.Empty);
-                }
+                    Collections.Scripts.Script _object = JsonSerializer.Deserialize<Collections.Scripts.Script>(reader["json"].ToString() ?? String.Empty);
+                    timeout = _object.timeout;
+                 
+                    await remote_shell_command_editor.SetValue(_object.script);}
             }
         }
         catch (Exception ex)
@@ -469,6 +491,13 @@
                         // Ordne Output dem richtigen Gerät zu
                         if (!string.IsNullOrEmpty(deviceId) && deviceOutputs.ContainsKey(deviceId))
                         {
+                            // Stop the timeout timer for this device
+                            if (deviceTimeoutTimers.ContainsKey(deviceId))
+                            {
+                                deviceTimeoutTimers[deviceId]?.Dispose();
+                                deviceTimeoutTimers.Remove(deviceId);
+                            }
+                            
                             string timestamp = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
                             
                             // Append output to existing output
@@ -543,11 +572,19 @@
             loading_overlay = true;
             executionProgress = 0;
             
+            // Dispose old timers
+            foreach (var timer in deviceTimeoutTimers.Values)
+            {
+                timer?.Dispose();
+            }
+            deviceTimeoutTimers.Clear();
+            
             // Reset status for all devices
             foreach (var device in deviceInfos)
             {
                 deviceCompleted[device.Id] = false;
                 deviceHasError[device.Id] = false;
+                deviceTimedOut[device.Id] = false;
             }
             
             StateHasChanged();
@@ -557,6 +594,34 @@
             {
                 try
                 {
+                    // Start timeout timer for this device
+                    int timeoutMilliseconds = timeout * 60 * 1000; // Convert minutes to milliseconds
+                    var timer = new System.Threading.Timer(async _ =>
+                    {
+                        await InvokeAsync(() =>
+                        {
+                            if (!deviceCompleted[deviceInfo.Id])
+                            {
+                                deviceTimedOut[deviceInfo.Id] = true;
+                                deviceCompleted[deviceInfo.Id] = true;
+                                deviceHasError[deviceInfo.Id] = false; // Not an error, just timeout
+                                
+                                string timestamp = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
+                                deviceOutputs[deviceInfo.Id] = $"[{timestamp}] [TIMEOUT] Script execution exceeded the timeout limit of {timeout} minute(s).\n{deviceOutputs[deviceInfo.Id]}";
+                                
+                                executionProgress++;
+                                
+                                if (executionProgress >= device_ids.Count)
+                                {
+                                    loading_overlay = false;
+                                }
+                                
+                                StateHasChanged();
+                            }
+                        });
+                    }, null, timeoutMilliseconds, System.Threading.Timeout.Infinite);
+                    
+                    deviceTimeoutTimers[deviceInfo.Id] = timer;
                     // Create the object
                     var adminIdentity = new Remote_Admin_Identity
                     {
@@ -663,6 +728,13 @@
 
     private async Task Cancel()
     {
+        // Dispose all timeout timers
+        foreach (var timer in deviceTimeoutTimers.Values)
+        {
+            timer?.Dispose();
+        }
+        deviceTimeoutTimers.Clear();
+        
         // Stop the remote server client
         if (remote_server_client_setup)
         {

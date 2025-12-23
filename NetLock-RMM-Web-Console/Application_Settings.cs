@@ -7,7 +7,7 @@ namespace NetLock_RMM_Web_Console
         public static string versionUrl = "https://blog.netlockrmm.com/2025/10/26/netlock-rmm-2-5-3-0-whitelabel-tray-icon/";
         public static string Local_Encryption_Key = "01234567890123456789012345678901";
 
-        //OSSCH_START 2141347d-c899-41c9-9ed5-cd18ccc5f79b //OSSCH_END
+        //OSSCH_START 638e7df6-7e73-4dc7-88cc-5559932f37be //OSSCH_END
 
         public static string onlyPro = "This feature is exclusive to Pro & Cloud users. Please ensure you have an active paid membership, or your changes will not take effect.";
     }

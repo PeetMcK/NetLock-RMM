@@ -69,6 +69,11 @@
                 <MudButton Class="ml-2 mt-5" Size="Size.Small" Variant="Variant.Filled" OnClick="@(() => Edit_Job_Dialog(jobs_selectedRowContent_id, jobs_selectedRowContent_json))" Color="Color.Default" StartIcon="@Icons.Material.Filled.Edit" Disabled="Jobs_Get_Row_Selected()">@Localizer["edit"]</MudButton>
             }
 
+            @if (permissions_collections_jobs_add)
+            {
+                <MudButton Class="ml-2 mt-5" Size="Size.Small" Variant="Variant.Filled" OnClick="@(() => Duplicate_Job_Dialog(jobs_selectedRowContent_json))" Color="Color.Info" StartIcon="@Icons.Material.Filled.ContentCopy" Disabled="Jobs_Get_Row_Selected()">Duplicate</MudButton>
+            }
+
             @if (permissions_collections_jobs_delete)
             {
                 <MudButton Class="ml-2 mt-5" Size="Size.Small" Variant="Variant.Filled" OnClick="@(() => Delete_Job_Dialog(jobs_selectedRowContent_id))" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" Disabled="Jobs_Get_Row_Selected()">@Localizer["delete"]</MudButton>
@@ -410,6 +415,54 @@
             jobs_selectedRowContent_json = String.Empty;
 
             await Get_Jobs();
+        }
+    }
+
+    private async Task Duplicate_Job_Dialog(string json)
+    {
+        if (String.IsNullOrWhiteSpace(json))
+            return;
+
+        try
+        {
+            // Deserialize to get the job name
+            var job_object = JsonSerializer.Deserialize<JsonDocument>(json);
+            if (job_object == null)
+                return;
+
+            string job_name = job_object.RootElement.GetProperty("name").GetString() ?? "";
+
+            var options = new DialogOptions
+            {
+                CloseButton = true,
+                FullWidth = true,
+                MaxWidth = MaxWidth.Medium,
+                BackgroundClass = "dialog-blurring",
+            };
+
+            DialogParameters parameters = new DialogParameters();
+            parameters.Add("OriginalJobName", job_name);
+            parameters.Add("JobJson", json);
+
+            var result = await this.DialogService.Show<Pages.Collections.Jobs.Dialogs.Duplicate_Job_Dialog>(string.Empty, parameters, options).Result;
+
+            if (result.Canceled)
+                return;
+
+            Logging.Handler.Debug("/manage_jobs -> Duplicate_Job_Dialog", "Result", result.Data?.ToString() ?? "null");
+
+            if (!String.IsNullOrEmpty(result.Data?.ToString()))
+            {
+                jobs_selectedRowContent_id = String.Empty;
+                jobs_selectedRowContent_json = String.Empty;
+
+                await Get_Jobs();
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("/manage_jobs -> Duplicate_Job_Dialog", "Error", ex.ToString());
         }
     }
 

@@ -37,6 +37,7 @@ namespace NetLock_RMM_Web_Console.Components.Pages.Devices
         private bool permissions_devices_remote_shell = false;
         private bool permissions_devices_remote_file_browser = false;
         private bool permissions_devices_remote_control = false;
+        private bool permissions_devices_remote_eventlog_viewer = false;
         private bool permissions_devices_deauthorize = false;
         private bool permissions_devices_move = false;
         public static List<string> permissions_tenants_list = new List<string> { };
@@ -68,6 +69,7 @@ namespace NetLock_RMM_Web_Console.Components.Pages.Devices
                 permissions_devices_remote_shell = await Classes.Authentication.Permissions.Verify_Permission(netlock_username, "devices_remote_shell");
                 permissions_devices_remote_file_browser = await Classes.Authentication.Permissions.Verify_Permission(netlock_username, "devices_remote_file_browser");
                 permissions_devices_remote_control = await Classes.Authentication.Permissions.Verify_Permission(netlock_username, "devices_remote_control");
+                permissions_devices_remote_eventlog_viewer = await Classes.Authentication.Permissions.Verify_Permission(netlock_username, "devices_remote_eventlog_viewer");
                 permissions_devices_deauthorize = await Classes.Authentication.Permissions.Verify_Permission(netlock_username, "devices_deauthorize");
                 permissions_devices_move = await Classes.Authentication.Permissions.Verify_Permission(netlock_username, "devices_move");
                 permissions_tenants_list = await Classes.Authentication.Permissions.Get_Tenants(netlock_username, true);
@@ -5269,6 +5271,43 @@ WHERE device_id = @deviceId");
                 return;
 
             Logging.Handler.Debug("/devices -> Remote_Shell_Dialog", "Result", result.Data.ToString());
+        }
+
+        #endregion
+
+        #region Remote EventLog
+
+        private bool remote_eventlog_dialog_open = false;
+
+        private async Task Remote_EventLog_Dialog()
+        {
+            if (remote_eventlog_dialog_open)
+                return;
+
+            var options = new DialogOptions
+            {
+                CloseButton = true,
+                FullWidth = true,
+                MaxWidth = MaxWidth.ExtraLarge,
+                BackgroundClass = "dialog-blurring",
+            };
+
+            DialogParameters parameters = new DialogParameters();
+            parameters.Add("device_id", notes_device_id);
+            parameters.Add("device_name", notes_device_name);
+            parameters.Add("tenant_guid", tenant_guid);
+            parameters.Add("location_guid", location_guid);
+
+            remote_eventlog_dialog_open = true;
+
+            var result = await DialogService.Show<Pages.Devices.Dialogs.Remote_EventLog.Remote_EventLog_Dialog>(string.Empty, parameters, options).Result;
+
+            remote_eventlog_dialog_open = false;
+
+            if (result.Canceled)
+                return;
+
+            Logging.Handler.Debug("/devices -> Remote_EventLog_Dialog", "Result", result.Data?.ToString() ?? "Dialog closed");
         }
 
         #endregion

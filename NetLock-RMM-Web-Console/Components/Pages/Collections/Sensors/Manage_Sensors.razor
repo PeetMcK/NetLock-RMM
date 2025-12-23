@@ -69,6 +69,11 @@
                 <MudButton Class="ml-2 mt-5" Size="Size.Small" Variant="Variant.Filled" OnClick="@(() => Edit_Sensor_Dialog(sensors_selectedRowContent_id, sensors_selectedRowContent_json))" Color="Color.Default" StartIcon="@Icons.Material.Filled.Edit" Disabled="Sensors_Get_Row_Selected()">@Localizer["edit"]</MudButton>
             }
 
+            @if (permissions_collections_sensors_add)
+            {
+                <MudButton Class="ml-2 mt-5" Size="Size.Small" Variant="Variant.Filled" OnClick="@(() => Duplicate_Sensor_Dialog(sensors_selectedRowContent_json))" Color="Color.Info" StartIcon="@Icons.Material.Filled.ContentCopy" Disabled="Sensors_Get_Row_Selected()">Duplicate</MudButton>
+            }
+
             @if (permissions_collections_sensors_delete)
             {
                 <MudButton Class="ml-2 mt-5" Size="Size.Small" Variant="Variant.Filled" OnClick="@(() => Delete_Sensor_Dialog(sensors_selectedRowContent_id))" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" Disabled="Sensors_Get_Row_Selected()">@Localizer["delete"]</MudButton>
@@ -481,6 +486,54 @@
     }
 
     private bool delete_sensor_dialog_open = false;
+
+    private async Task Duplicate_Sensor_Dialog(string json)
+    {
+        if (String.IsNullOrWhiteSpace(json))
+            return;
+
+        try
+        {
+            // Deserialize to get the sensor name
+            var sensor_object = JsonSerializer.Deserialize<JsonDocument>(json);
+            if (sensor_object == null)
+                return;
+
+            string sensor_name = sensor_object.RootElement.GetProperty("name").GetString() ?? "";
+
+            var options = new DialogOptions
+            {
+                CloseButton = true,
+                FullWidth = true,
+                MaxWidth = MaxWidth.Medium,
+                BackgroundClass = "dialog-blurring",
+            };
+
+            DialogParameters parameters = new DialogParameters();
+            parameters.Add("OriginalSensorName", sensor_name);
+            parameters.Add("SensorJson", json);
+
+            var result = await this.DialogService.Show<Pages.Collections.Sensors.Dialogs.Duplicate_Sensor_Dialog>(string.Empty, parameters, options).Result;
+
+            if (result.Canceled)
+                return;
+
+            Logging.Handler.Debug("/manage_sensors -> Duplicate_Sensor_Dialog", "Result", result.Data?.ToString() ?? "null");
+
+            if (!String.IsNullOrEmpty(result.Data?.ToString()))
+            {
+                sensors_selectedRowContent_id = String.Empty;
+                sensors_selectedRowContent_json = String.Empty;
+
+                await Sensors_Load();
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("/manage_sensors -> Duplicate_Sensor_Dialog", "Error", ex.ToString());
+        }
+    }
 
     private async Task Delete_Sensor_Dialog(string id)
     {

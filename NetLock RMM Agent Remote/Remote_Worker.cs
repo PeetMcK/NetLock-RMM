@@ -117,7 +117,7 @@ namespace NetLock_RMM_Agent_Remote
             public string remote_control_mouse_xyz { get; set; }
             public string remote_control_keyboard_input { get; set; }
             public string remote_control_keyboard_content { get; set; }
-            public string command { get; set; } // used for service, task manager, screen capture. A command can either be a quick command like "list" or a json string with parameters, a number or json string
+            public string command { get; set; } // used for service, task manager, screen capture. A command can either be a quick command like "list" or a json string with parameters, a number or json string. Can also be used to transfer command details for other command types
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -129,15 +129,14 @@ namespace NetLock_RMM_Agent_Remote
                 if (firstRun)
                 {
                     firstRun = false;
-if (Agent.debug_mode)
-    Logging.Debug("Service.ExecuteAsync", "Service is starting...", "Information");
-
+                    
+                    if (Agent.debug_mode)
+                        Logging.Debug("Service.ExecuteAsync", "Service is starting...", "Information");
                     
                     try
                     {
-if (Agent.debug_mode)
-    Logging.Debug("Service.OnStart", "Service started", "Information");
-
+                        if (Agent.debug_mode)
+                            Logging.Debug("Service.OnStart", "Service started", "Information");
                         
                         await LoadServerConfig();
 
@@ -178,9 +177,8 @@ if (Agent.debug_mode)
                     }
                     catch (Exception ex)
                     {
-if (Agent.debug_mode)
-    Logging.Error("Service.OnStart", "Error during service startup.", ex.ToString());
-
+                        if (Agent.debug_mode)
+                            Logging.Error("Service.OnStart", "Error during service startup.", ex.ToString());
                     }
                 }
 
@@ -377,17 +375,17 @@ if (Agent.debug_mode)
                 // Check if the device_identity is empty, if so, return
                 if (String.IsNullOrEmpty(device_identity_json))
                 {
-if (Agent.debug_mode)
-    Logging.Error("Service.Setup_SignalR", "Device identity is empty.", "");
+                    if (Agent.debug_mode)
+                        Logging.Error("Service.Setup_SignalR", "Device identity is empty.", "");
 
                     return;
                 }
                 else
                     Logging.Debug("Service.Setup_SignalR", "Device identity is not empty. Preparing remote connection.",
                         "");
-if (Agent.debug_mode)
-    Logging.Debug("Service.Setup_SignalR", "Device identity JSON", device_identity_json);
-
+                
+                if (Agent.debug_mode)
+                    Logging.Debug("Service.Setup_SignalR", "Device identity JSON", device_identity_json);
 
                 // Deserialise device identity
                 var jsonDocument = JsonDocument.Parse(device_identity_json);
@@ -398,8 +396,8 @@ if (Agent.debug_mode)
 
                 if (remote_server_client != null)
                 {
-if (Agent.debug_mode)
-    Logging.Debug("Service.Setup_SignalR", "Disposing existing remote server client.", "");
+                    if (Agent.debug_mode)
+                        Logging.Debug("Service.Setup_SignalR", "Disposing existing remote server client.", "");
 
                     await remote_server_client.StopAsync();
                     await remote_server_client.DisposeAsync();
@@ -418,16 +416,14 @@ if (Agent.debug_mode)
                     }).ConfigureLogging(logging =>
                     {
                         if (OperatingSystem.IsWindows())
-if (Agent.debug_mode)
-    logging.AddEventLog();
+                            if (Agent.debug_mode)
+                                logging.AddEventLog();
 
-if (Agent.debug_mode)
+                        if (Agent.debug_mode) 
+                            logging.AddConsole();
 
-    logging.AddConsole();
-
-if (Agent.debug_mode)
-
-    logging.SetMinimumLevel(LogLevel.Warning);
+                        if (Agent.debug_mode) 
+                            logging.SetMinimumLevel(LogLevel.Warning);
 
                     })
                     .WithAutomaticReconnect()
@@ -436,8 +432,8 @@ if (Agent.debug_mode)
                 // Handle ConnectionEstablished event from server
                 remote_server_client.On<string>("ConnectionEstablished", (message) =>
                 {
-if (Agent.debug_mode)
-    Logging.Debug("Service.Setup_SignalR", "ConnectionEstablished with message", message);
+                    if (Agent.debug_mode)
+                        Logging.Debug("Service.Setup_SignalR", "ConnectionEstablished with message", message);
 
                     // Connection established, no further action needed
                 });
@@ -445,18 +441,17 @@ if (Agent.debug_mode)
                 // Handle ConnectionEstablished event from server - without parameter
                 remote_server_client.On("ConnectionEstablished", () =>
                 {
-if (Agent.debug_mode)
-    Logging.Debug("Service.Setup_SignalR", "ConnectionEstablished without message", "");
+                    if (Agent.debug_mode)
+                        Logging.Debug("Service.Setup_SignalR", "ConnectionEstablished without message", "");
 
                     // Connection established, no further action needed
                 });
                 
                 remote_server_client.On<string>("SendMessageToClient", async (command) =>
                 {
-if (Agent.debug_mode)
-    Logging.Debug("Service.Setup_SignalR", "SendMessageToClient", command);
-
-
+                    if (Agent.debug_mode)
+                        Logging.Debug("Service.Setup_SignalR", "SendMessageToClient", command);
+                    
                     // Deserialisation of the entire JSON string
                     Command_Entity command_object = JsonSerializer.Deserialize<Command_Entity>(command);
 
@@ -570,10 +565,10 @@ if (Agent.debug_mode)
 
                             // Convert the object into a JSON string
                             string json = JsonSerializer.Serialize(jsonObject, new JsonSerializerOptions { WriteIndented = true });
-if (Agent.debug_mode)
-    Logging.Debug("Service.Setup_SignalR", "Remote Control json", json);
-
-
+                            
+                            if (Agent.debug_mode)
+                                Logging.Debug("Service.Setup_SignalR", "Remote Control json", json);
+                            
                             // Send through local server to tray icon user process
                             await SendToClient(command_object.remote_control_username + "tray", json);
                             
@@ -586,9 +581,8 @@ if (Agent.debug_mode)
                     }
                     catch (Exception ex)
                     {
-if (Agent.debug_mode)
-    Logging.Error("Service.Setup_SignalR", "Failed to deserialize command object.", ex.ToString());
-
+                        if (Agent.debug_mode)
+                            Logging.Error("Service.Setup_SignalR", "Failed to deserialize command object.", ex.ToString());
                     }
 
                     // Example: If the command is "sync", send a message to the local server to force a sync with the remote server
@@ -599,9 +593,8 @@ if (Agent.debug_mode)
                 // Receive a message from the remote server, process the command and send a response back to the remote server
                 remote_server_client.On<string>("SendMessageToClientAndWaitForResponse", async (command) =>
                 {
-if (Agent.debug_mode)
-    Logging.Debug("Service.Setup_SignalR", "SendMessageToClientAndWaitForResponse", command);
-
+                    if (Agent.debug_mode)
+                        Logging.Debug("Service.Setup_SignalR", "SendMessageToClientAndWaitForResponse", command);
                     
                     // Deserialisation of the entire JSON string
                     Command_Entity command_object = JsonSerializer.Deserialize<Command_Entity>(command);
@@ -615,15 +608,16 @@ if (Agent.debug_mode)
                         {
                             if (OperatingSystem.IsWindows())
                                 result = Windows.Helper.PowerShell.Execute_Script(command_object.type.ToString(),
-                                    command_object.powershell_code);
+                                    command_object.powershell_code, Convert.ToInt32(command_object.command));
                             else if (OperatingSystem.IsLinux())
                                 result = Linux.Helper.Bash.Execute_Script("Remote Shell", true,
-                                    command_object.powershell_code);
+                                    command_object.powershell_code, Convert.ToInt32(command_object.command));
                             else if (OperatingSystem.IsMacOS())
                                 result = MacOS.Helper.Zsh.Execute_Script("Remote Shell", true,
-                                    command_object.powershell_code);
-if (Agent.debug_mode)
-    Logging.Debug("Client", "PowerShell executed", result);
+                                    command_object.powershell_code, Convert.ToInt32(command_object.command));
+                            
+                            if (Agent.debug_mode)
+                                Logging.Debug("Client", "PowerShell executed", result);
 
                         }
                         else if (command_object.type == 1 && _agentSettingsRemoteFileBrowserEnabled) // File Browser
@@ -696,15 +690,15 @@ if (Agent.debug_mode)
                                                       device_identity_object.device_name + "&access_key=" +
                                                       device_identity_object.access_key + "&hwid=" +
                                                       device_identity_object.hwid;
-if (Agent.debug_mode)
-    Logging.Debug("Service.Setup_SignalR", "Download URL", download_url);
-
-
+                                
+                                if (Agent.debug_mode)
+                                    Logging.Debug("Service.Setup_SignalR", "Download URL", download_url);
+                                
                                 result = await Http.DownloadFileAsync(Global.Configuration.Agent.ssl, download_url,
                                     command_object.file_browser_path, device_identity_object.package_guid);
-if (Agent.debug_mode)
-    Logging.Debug("Service.Setup_SignalR", "File downloaded", result);
-
+                                
+                                if (Agent.debug_mode)
+                                    Logging.Debug("Service.Setup_SignalR", "File downloaded", result);
                             }
                             else if (command_object.file_browser_command == 11) // upload file
                             {
@@ -717,9 +711,9 @@ if (Agent.debug_mode)
                                                     device_identity_object.device_name + "&access_key=" +
                                                     device_identity_object.access_key + "&hwid=" +
                                                     device_identity_object.hwid;
-if (Agent.debug_mode)
-    Logging.Debug("Service.Setup_SignalR", "Upload URL", upload_url);
 
+                                if (Agent.debug_mode)
+                                    Logging.Debug("Service.Setup_SignalR", "Upload URL", upload_url);
 
                                 // Upload the file to the server
                                 result = await Http.UploadFileAsync(Global.Configuration.Agent.ssl, upload_url, command_object.file_browser_path,
@@ -729,10 +723,10 @@ if (Agent.debug_mode)
                         else if (command_object.type == 2 && _agentSettingsRemoteServiceManagerEnabled) // Service
                         {
                             // Deserialise the command_object.command json, using json document (action, name)
-if (Agent.debug_mode)
-    Logging.Debug("Service.Setup_SignalR", "Service command", command_object.command);
-
-
+                            
+                            if (Agent.debug_mode)
+                                Logging.Debug("Service.Setup_SignalR", "Service command", command_object.command);
+                            
                             string action = String.Empty;
                             string name = String.Empty;
 
@@ -972,6 +966,219 @@ if (Agent.debug_mode)
                             }
                             
                             return; // Return here to prevent sending a second response
+                        }
+                        else if (command_object.type == 10) // Event Log - Simple Commands (Windows only)
+                        {
+                            if (!OperatingSystem.IsWindows())
+                            {
+                                result = JsonSerializer.Serialize(new
+                                {
+                                    success = false,
+                                    error = "Event Log is only available on Windows",
+                                    timestamp = DateTime.UtcNow.ToString("o")
+                                }, new JsonSerializerOptions { WriteIndented = true });
+                            }
+                            else
+                            {
+                                try
+                                {
+                                    // command_object.command contains the event log command as a simple string ("1", "3", "4")
+                                    int eventLogCommand = Convert.ToInt32(command_object.command);
+                                    
+                                    if (Agent.debug_mode)
+                                        Logging.Debug("Service.Setup_SignalR", "Event Log command", eventLogCommand.ToString());
+                                    
+                                    if (eventLogCommand == 1) // Get available event logs
+                                    {
+                                        result = Eventlog.GetAvailableEventLogs();
+                                    }
+                                    else if (eventLogCommand == 3) // Get event log stats (requires log_name in future)
+                                    {
+                                        // Default to Application log for now
+                                        string logName = "Application";
+                                        result = Eventlog.GetEventLogStats(logName);
+                                    }
+                                    else if (eventLogCommand == 4) // Clear event log (requires log_name in future)
+                                    {
+                                        // Default to Application log for now
+                                        string logName = "Application";
+                                        result = Eventlog.ClearEventLog(logName);
+                                    }
+                                    else
+                                    {
+                                        result = JsonSerializer.Serialize(new
+                                        {
+                                            success = false,
+                                            error = $"Unknown event log command: {eventLogCommand}. Use Type 11 for reading event logs.",
+                                            timestamp = DateTime.UtcNow.ToString("o")
+                                        }, new JsonSerializerOptions { WriteIndented = true });
+                                    }
+                                    
+                                    if (Agent.debug_mode)
+                                        Logging.Debug("Service.Setup_SignalR", "Event Log result", result);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Logging.Error("Service.Setup_SignalR", "Failed to execute event log command", ex.ToString());
+                                    result = JsonSerializer.Serialize(new
+                                    {
+                                        success = false,
+                                        error = ex.Message,
+                                        timestamp = DateTime.UtcNow.ToString("o")
+                                    }, new JsonSerializerOptions { WriteIndented = true });
+                                }
+                            }
+                        }
+                        else if (command_object.type == 11) // Event Log - Read Event Log with Parameters (Windows only)
+                        {
+                            if (!OperatingSystem.IsWindows())
+                            {
+                                result = JsonSerializer.Serialize(new
+                                {
+                                    success = false,
+                                    error = "Event Log is only available on Windows",
+                                    timestamp = DateTime.UtcNow.ToString("o")
+                                }, new JsonSerializerOptions { WriteIndented = true });
+                            }
+                            else
+                            {
+                                try
+                                {
+                                    // Parse the command JSON to extract parameters for reading event logs
+                                    using (JsonDocument doc = JsonDocument.Parse(command_object.command))
+                                    {
+                                        JsonElement root = doc.RootElement;
+
+                                        string logName = root.TryGetProperty("log_name", out var logNameElement)
+                                            ? logNameElement.GetString() ?? "Application"
+                                            : "Application";
+
+                                        int maxEntries = root.TryGetProperty("max_entries", out var maxEntriesElement)
+                                            ? maxEntriesElement.GetInt32()
+                                            : 100;
+
+                                        byte? level = null;
+                                        if (root.TryGetProperty("level", out var levelElement) && levelElement.ValueKind != JsonValueKind.Null)
+                                            level = levelElement.GetByte();
+
+                                        int? eventId = null;
+                                        if (root.TryGetProperty("event_id", out var eventIdElement) && eventIdElement.ValueKind != JsonValueKind.Null)
+                                            eventId = eventIdElement.GetInt32();
+
+                                        DateTime? startTime = null;
+                                        if (root.TryGetProperty("start_time", out var startTimeElement) && startTimeElement.ValueKind != JsonValueKind.Null)
+                                        {
+                                            string startTimeStr = startTimeElement.GetString() ?? string.Empty;
+                                            if (!string.IsNullOrEmpty(startTimeStr))
+                                            {
+                                                // Support both ISO 8601 and "yyyy-MM-dd HH:mm:ss" formats
+                                                if (DateTime.TryParse(startTimeStr, out DateTime parsedStartTime))
+                                                    startTime = parsedStartTime;
+                                            }
+                                        }
+
+                                        DateTime? endTime = null;
+                                        if (root.TryGetProperty("end_time", out var endTimeElement) && endTimeElement.ValueKind != JsonValueKind.Null)
+                                        {
+                                            string endTimeStr = endTimeElement.GetString() ?? string.Empty;
+                                            if (!string.IsNullOrEmpty(endTimeStr))
+                                            {
+                                                // Support both ISO 8601 and "yyyy-MM-dd HH:mm:ss" formats
+                                                if (DateTime.TryParse(endTimeStr, out DateTime parsedEndTime))
+                                                    endTime = parsedEndTime;
+                                            }
+                                        }
+
+                                        string? providerName = null;
+                                        if (root.TryGetProperty("provider_name", out var providerNameElement) && providerNameElement.ValueKind != JsonValueKind.Null)
+                                        {
+                                            providerName = providerNameElement.GetString();
+                                            // Treat empty string as null
+                                            if (string.IsNullOrWhiteSpace(providerName))
+                                                providerName = null;
+                                        }
+
+                                        if (Agent.debug_mode)
+                                            Logging.Debug("Service.Setup_SignalR", "Reading Event Log",
+                                                $"LogName: {logName}, MaxEntries: {maxEntries}, Level: {level}, EventId: {eventId}, StartTime: {startTime}, EndTime: {endTime}, Provider: {providerName}");
+
+                                        result = Eventlog.ReadEventLog(logName, maxEntries, level, eventId, startTime, endTime, providerName);
+                                    }
+
+                                    if (Agent.debug_mode)
+                                        Logging.Debug("Service.Setup_SignalR", "Event Log read result", result);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Logging.Error("Service.Setup_SignalR", "Failed to read event log", ex.ToString());
+                                    result = JsonSerializer.Serialize(new
+                                    {
+                                        success = false,
+                                        error = ex.Message,
+                                        timestamp = DateTime.UtcNow.ToString("o")
+                                    }, new JsonSerializerOptions { WriteIndented = true });
+                                }
+                            }
+                        }
+                        else if (command_object.type == 12) // Get eventlog stats
+                        {
+                            if (!OperatingSystem.IsWindows())
+                            {
+                                result = JsonSerializer.Serialize(new
+                                {
+                                    success = false,
+                                    error = "Event Log is only available on Windows",
+                                    timestamp = DateTime.UtcNow.ToString("o")
+                                }, new JsonSerializerOptions { WriteIndented = true });
+                            }
+                            else
+                            {
+                                try
+                                {
+                                    string logName = command_object.command ?? "Application";
+                                    result = Eventlog.GetEventLogStats(logName);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Logging.Error("Service.Setup_SignalR", "Failed to get event log stats", ex.ToString());
+                                    result = JsonSerializer.Serialize(new
+                                    {
+                                        success = false,
+                                        error = ex.Message,
+                                        timestamp = DateTime.UtcNow.ToString("o")
+                                    }, new JsonSerializerOptions { WriteIndented = true });
+                                }
+                            }
+                        }
+                        else if (command_object.type == 13) // Clear eventlogs
+                        {
+                            if (!OperatingSystem.IsWindows())
+                            {
+                                result = JsonSerializer.Serialize(new
+                                {
+                                    success = false,
+                                    error = "Event Log is only available on Windows",
+                                    timestamp = DateTime.UtcNow.ToString("o")
+                                }, new JsonSerializerOptions { WriteIndented = true });
+                            }
+                            else
+                            {
+                                try
+                                {
+                                    string logName = command_object.command ?? "Application";
+                                    result = Eventlog.ClearEventLog(logName);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Logging.Error("Service.Setup_SignalR", "Failed to clear event log", ex.ToString());
+                                    result = JsonSerializer.Serialize(new
+                                    {
+                                        success = false,
+                                        error = ex.Message,
+                                        timestamp = DateTime.UtcNow.ToString("o")
+                                    }, new JsonSerializerOptions { WriteIndented = true });
+                                }
+                            }
                         }
                     }
                     catch (Exception ex)

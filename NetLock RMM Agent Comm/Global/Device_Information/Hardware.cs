@@ -70,7 +70,7 @@ namespace Global.Device_Information
                 {
                     string cpu_name = string.Empty;
                     // Read the CPU information from the system_profiler command
-                    string systemProfilerOutput = MacOS.Helper.Zsh.Execute_Script("CPU_Name", false, "system_profiler SPHardwareDataType");
+                    string systemProfilerOutput = MacOS.Helper.Zsh.Execute_Script("CPU_Name", false, "system_profiler SPHardwareDataType", 0);
                     if (!string.IsNullOrEmpty(systemProfilerOutput))
                     {
                         // Search for the "Processor Name" line
@@ -283,11 +283,11 @@ namespace Global.Device_Information
                     cpu_name = CPU_Name();
 
                     // CPU Cores and Threads
-                    cpu_cores = MacOS.Helper.Zsh.Execute_Script("CPU_Information", false, "sysctl -n hw.physicalcpu").Trim();
-                    cpu_threads = MacOS.Helper.Zsh.Execute_Script("CPU_Information", false, "sysctl -n hw.logicalcpu").Trim();
+                    cpu_cores = MacOS.Helper.Zsh.Execute_Script("CPU_Information", false, "sysctl -n hw.physicalcpu", 0).Trim();
+                    cpu_threads = MacOS.Helper.Zsh.Execute_Script("CPU_Information", false, "sysctl -n hw.logicalcpu", 0).Trim();
 
                     // CPU Speed
-                    string cpu_speed_hz = MacOS.Helper.Zsh.Execute_Script("CPU_Information", false, "sysctl -n hw.cpufrequency").Trim();
+                    string cpu_speed_hz = MacOS.Helper.Zsh.Execute_Script("CPU_Information", false, "sysctl -n hw.cpufrequency", 0).Trim();
                     if (long.TryParse(cpu_speed_hz, out long cpuSpeedHz))
                     {
                         double cpuSpeedGHz = cpuSpeedHz / 1_000_000_000.0; // Convert to GHz
@@ -295,7 +295,7 @@ namespace Global.Device_Information
                     }
 
                     // CPU Cache Size (L3)
-                    cpu_cache = MacOS.Helper.Zsh.Execute_Script("CPU_Information", false, "sysctl -n hw.l3cachesize").Trim();
+                    cpu_cache = MacOS.Helper.Zsh.Execute_Script("CPU_Information", false, "sysctl -n hw.l3cachesize", 0).Trim();
                     if (long.TryParse(cpu_cache, out long cacheBytes))
                     {
                         double cacheMB = cacheBytes / 1_048_576.0; // Convert to MB
@@ -492,7 +492,7 @@ namespace Global.Device_Information
                 try
                 {
                     // Execute the 'top' command to fetch CPU and memory usage
-                    string topOutput = MacOS.Helper.Zsh.Execute_Script("cpu usage", false, "top -l 1 | grep -E \"^CPU|^Phys\"");
+                    string topOutput = MacOS.Helper.Zsh.Execute_Script("cpu usage", false, "top -l 1 | grep -E \"^CPU|^Phys\"", 0);
 
                     if (!string.IsNullOrWhiteSpace(topOutput))
                     {
@@ -796,7 +796,7 @@ namespace Global.Device_Information
                     string hardware_reserved = "N/A";
 
                     // Execute vm_stat command to gather memory statistics
-                    string vmStatOutput = MacOS.Helper.Zsh.Execute_Script("RAM_Information", false, "vm_stat");
+                    string vmStatOutput = MacOS.Helper.Zsh.Execute_Script("RAM_Information", false, "vm_stat", 0);
                     if (!string.IsNullOrEmpty(vmStatOutput))
                     {
                         // Parse vm_stat output
@@ -823,7 +823,7 @@ namespace Global.Device_Information
                     }
 
                     // Use sysctl to gather additional memory information
-                    string sysctlOutput = MacOS.Helper.Zsh.Execute_Script("RAM_Information", false, "sysctl hw.memsize");
+                    string sysctlOutput = MacOS.Helper.Zsh.Execute_Script("RAM_Information", false, "sysctl hw.memsize", 0);
                     if (!string.IsNullOrEmpty(sysctlOutput))
                     {
                         // Extract total memory size
@@ -949,7 +949,7 @@ namespace Global.Device_Information
                 else if (OperatingSystem.IsLinux())
                 {
                     // RAM utilisation under Linux
-                    string ramUsage = Linux.Helper.Bash.Execute_Script("RAM_Usage", false, "free | grep Mem | awk '{print $3/$2 * 100}'");
+                    string ramUsage = Linux.Helper.Bash.Execute_Script("RAM_Usage", false, "free | grep Mem | awk '{print $3/$2 * 100}'", 0);
 
                     // Parse the result into a double to ensure proper rounding
                     if (double.TryParse(ramUsage, out double usageValue))
@@ -968,7 +968,8 @@ namespace Global.Device_Information
                         string vmStatOutput = MacOS.Helper.Zsh.Execute_Script(
                             "RAM_Usage",
                             false,
-                            "vm_stat | perl -ne '/page size of (\\d+)/ and $size=$1; /Pages\\s+([^:]+)[^\\d]+(\\d+)/ and printf(\"%-16s %16.2f Mi\\n\", \"$1:\", $2 * $size / 1048576);'"
+                            "vm_stat | perl -ne '/page size of (\\d+)/ and $size=$1; /Pages\\s+([^:]+)[^\\d]+(\\d+)/ and printf(\"%-16s %16.2f Mi\\n\", \"$1:\", $2 * $size / 1048576);'", 
+                            0
                         );
 
                         if (string.IsNullOrEmpty(vmStatOutput))
@@ -1480,12 +1481,12 @@ namespace Global.Device_Information
                 }
                 else if (OperatingSystem.IsLinux())
                 {
-                    _ram = Linux.Helper.Bash.Execute_Script("RAM_Total", false, "grep MemTotal /proc/meminfo | awk '{print $2}'");
+                    _ram = Linux.Helper.Bash.Execute_Script("RAM_Total", false, "grep MemTotal /proc/meminfo | awk '{print $2}'", 0);
                     _ram = Math.Round(Convert.ToDouble(_ram) / 1024 / 1024).ToString();
                 }
                 else if (OperatingSystem.IsMacOS())
                 {
-                    string systemProfilerOutput = MacOS.Helper.Zsh.Execute_Script("RAM_Total", false, "system_profiler SPHardwareDataType");
+                    string systemProfilerOutput = MacOS.Helper.Zsh.Execute_Script("RAM_Total", false, "system_profiler SPHardwareDataType",0);
                     if (!string.IsNullOrEmpty(systemProfilerOutput))
                     {
                         foreach (string line in systemProfilerOutput.Split('\n'))
@@ -1775,7 +1776,7 @@ namespace Global.Device_Information
                     {
                         if (File.Exists(path))
                         {
-                            _mainboard = Linux.Helper.Bash.Execute_Script("Mainboard_Name", false, $"cat {path}").Trim();
+                            _mainboard = Linux.Helper.Bash.Execute_Script("Mainboard_Name", false, $"cat {path}", 0).Trim();
                             break;
                         }
                     }
@@ -1785,7 +1786,7 @@ namespace Global.Device_Information
                     {
                         if (File.Exists(path))
                         {
-                            mainboard_manufacturer = Linux.Helper.Bash.Execute_Script("Mainboard_Name", false, $"cat {path}").Trim();
+                            mainboard_manufacturer = Linux.Helper.Bash.Execute_Script("Mainboard_Name", false, $"cat {path}",0).Trim();
                             break;
                         }
                     }
@@ -1825,7 +1826,7 @@ namespace Global.Device_Information
             }
             else if (OperatingSystem.IsLinux())
             {
-                string output = Linux.Helper.Bash.Execute_Script("GPU_Name", false, "lshw -C display");
+                string output = Linux.Helper.Bash.Execute_Script("GPU_Name", false, "lshw -C display", 0);
                 if (!string.IsNullOrWhiteSpace(output))
                 {
                     string product = null;

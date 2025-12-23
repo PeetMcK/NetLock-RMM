@@ -98,6 +98,19 @@
 
     </DialogContent>
     <DialogActions>
+        
+        <div style="max-width: 600px;">
+            <MudNumericField Label="Timeout" 
+                             T="int" 
+                             @bind-Value="@timeout" 
+                             Min="1" 
+                             Max="9999"
+                             Adornment="Adornment.End"
+                             AdornmentText="Minute(s)"
+                             HelperText="Maximum execution time for the script. It will be terminated if it exceeds this limit."
+                             />
+        </div>
+        
         <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Default" StartIcon="@Icons.Material.Filled.Code" OnClick="@Community_Scripts_Dialog">Community Scripts</MudButton>
 
         <div style="display: flex; align-items: center;">
@@ -125,6 +138,7 @@
     private bool loading_overlay = false;
     private bool expanded = false;
     private string platform = String.Empty;
+    private int timeout = 1;
 
     protected override async Task OnInitializedAsync()
     {
@@ -248,7 +262,10 @@
             {
                 while (await reader.ReadAsync())
                 {
-                    await remote_shell_command_editor.SetValue(reader["script"].ToString() ?? String.Empty);
+                    Collections.Scripts.Script _object = JsonSerializer.Deserialize<Collections.Scripts.Script>(reader["json"].ToString() ?? String.Empty);
+                    timeout = _object.timeout;
+                 
+                    await remote_shell_command_editor.SetValue(_object.script);
                 }
             }
         }
@@ -306,6 +323,7 @@
         public string file_browser_path { get; set; }
         public string file_browser_path_move { get; set; }
         public string file_browser_file_content { get; set; }
+        public string command { get; set; }
     }
 
     public class Remote_Root_Object
@@ -424,7 +442,8 @@
                 {
                     type = 0,
                     wait_response = wait_repsonse,
-                    powershell_code = powershell_code
+                    powershell_code = powershell_code,
+                    command = timeout.ToString(),
                 };
 
             var rootObject = new Remote_Root_Object

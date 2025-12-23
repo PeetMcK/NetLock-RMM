@@ -89,7 +89,7 @@ namespace Global.Device_Information
                 try
                 {
                     // macOS Systeminformationen abrufen
-                    string systemInfo = MacOS.Helper.Zsh.Execute_Script("Version", false, "sw_vers");
+                    string systemInfo = MacOS.Helper.Zsh.Execute_Script("Version", false, "sw_vers", 0);
                     string productName = "-";
                     string productVersion = "-";
                     string buildVersion = "-";
@@ -326,7 +326,7 @@ namespace Global.Device_Information
                 else if (OperatingSystem.IsMacOS())
                 {
                     // Get the last boot time from the system
-                    string rawBootTime = MacOS.Helper.Zsh.Execute_Script("Get_Last_Boot_Time", false, "sysctl kern.boottime");
+                    string rawBootTime = MacOS.Helper.Zsh.Execute_Script("Get_Last_Boot_Time", false, "sysctl kern.boottime", 0);
 
                     // Extract the seconds part using Regex
                     var match = System.Text.RegularExpressions.Regex.Match(rawBootTime, @"sec\s*=\s*(\d+)");
@@ -384,12 +384,12 @@ namespace Global.Device_Information
                 else if (OperatingSystem.IsLinux())
                 {
                     // Get the last active user from who command including ip
-                    lastLoggedOnUser = Linux.Helper.Bash.Execute_Script("Get_Last_Active_User", false, "who | awk '{print $1, $5}' | head -n 1");
+                    lastLoggedOnUser = Linux.Helper.Bash.Execute_Script("Get_Last_Active_User", false, "who | awk '{print $1, $5}' | head -n 1", 0);
                 }
                 else if (OperatingSystem.IsMacOS())
                 {
                     // Trim any whitespace and return the user
-                    lastLoggedOnUser = MacOS.Helper.Zsh.Execute_Script("Get_Last_Active_User", false, "whoami");
+                    lastLoggedOnUser = MacOS.Helper.Zsh.Execute_Script("Get_Last_Active_User", false, "whoami", 0);
                 }
 
                 return lastLoggedOnUser;

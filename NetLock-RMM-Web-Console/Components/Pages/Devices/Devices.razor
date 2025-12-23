@@ -472,7 +472,7 @@
 
                                     @if (permissions_devices_remote_shell)
                                     {
-                                        <MudButton Class="mb-2 mb-md-0 ml-0 ml-md-2" Size="Size.Small" Color="Color.Default" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Terminal" OnClick="@(async () => await CheckRemoteActionAvailability(async () => await Remote_Shell_Dialog(), policyRemoteShellEnabled))">Remote Shell</MudButton>
+                                        <MudButton Class="mb-2 mb-md-0 ml-0 ml-md-2" Size="Size.Small" Color="Color.Default" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Terminal" OnClick="@(async () => await CheckRemoteActionAvailability(async () => await Remote_Shell_Dialog(), policyRemoteShellEnabled))">Shell</MudButton>
                                     }
 
                                     @if (permissions_devices_remote_file_browser)
@@ -480,9 +480,14 @@
                                         <MudButton Class="mb-2 mb-md-0 ml-0 ml-md-2" Size="Size.Small" Color="Color.Default" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.FolderOpen" OnClick="@(async () => await CheckRemoteActionAvailability(async () => await Remote_File_Browser_Dialog(), policyRemoteFileBrowserEnabled))">@Localizer["file_browser"]</MudButton>
                                     }
 
+                                    @if (permissions_devices_remote_eventlog_viewer && platform == "Windows")
+                                    {
+                                        <MudButton Class="mb-2 mb-md-0 ml-0 ml-md-2" Size="Size.Small" Color="Color.Default" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Article" OnClick="@(async () => await CheckRemoteActionAvailability(async () => await Remote_EventLog_Dialog(), policyRemoteShellEnabled))">Event Logs</MudButton>
+                                    }
+                                    
                                     @if (permissions_devices_remote_control && platform == "Windows")
                                     {
-                                        <MudButton Class="mb-2 mb-md-0 ml-0 ml-md-2" Size="Size.Small" Color="Color.Default" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Monitor" OnClick="@(async () => await CheckRemoteActionAvailability(async () => await Remote_Control_Dialog(), policyRemoteScreenControlEnabled))">Remote Screen Control</MudButton>
+                                        <MudButton Class="mb-2 mb-md-0 ml-0 ml-md-2" Size="Size.Small" Color="Color.Default" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Monitor" OnClick="@(async () => await CheckRemoteActionAvailability(async () => await Remote_Control_Dialog(), policyRemoteScreenControlEnabled))">Screen Control</MudButton>
                                     }
                                 }
                             </div>
@@ -3514,46 +3519,279 @@
                             {
                                 <MudTabPanel Text="Microsoft Defender Antivirus">
                             
-                                    <MudPaper>
+                                    <MudGrid Spacing="3">
+                                        
+                                        @* Row 1: Protection Status Cards *@
+                                        <MudItem xs="12" sm="6" md="4">
+                                            <MudCard Elevation="2" Style="height: 100%;">
+                                                <MudCardHeader>
+                                                    <CardHeaderAvatar>
+                                                        <MudAvatar Color="@(antivirus_information_realtimetprotectionenabled ? Color.Success : Color.Error)" Variant="Variant.Filled">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Shield" />
+                                                        </MudAvatar>
+                                                    </CardHeaderAvatar>
+                                                    <CardHeaderContent>
+                                                        <MudText Typo="Typo.h6">@Localizer["real_time_protection"]</MudText>
+                                                    </CardHeaderContent>
+                                                </MudCardHeader>
+                                                <MudCardContent>
+                                                    <MudChip T="string" Color="@(antivirus_information_realtimetprotectionenabled ? Color.Success : Color.Error)" Icon="@Icons.Material.Filled.Info">
+                                                        @antivirus_information_realtimetprotectionenabled_display
+                                                    </MudChip>
+                                                </MudCardContent>
+                                            </MudCard>
+                                        </MudItem>
 
-                                        <MudText Class="ml-2" Typo="Typo.h6">Antimalware</MudText>
-                                        <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Info" Color="@(antivirus_information_amserviceenabled ? Color.Success : Color.Error)" Title="Status" Size="Size.Small" />&nbsp;@Localizer["antivirus_information_amserviceenabled"]: @antivirus_information_amserviceenabled_display</MudText>
-                                        <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Update" Title="Status" Size="Size.Small" />&nbsp;@Localizer["antivirus_information_amengineversion"]: @antivirus_information_amengineversion</MudText>
-                                        <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Update" Title="Status" Size="Size.Small" />&nbsp;@Localizer["antivirus_information_amproductversion"]: @antivirus_information_amproductversion</MudText>
-                                        <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Update" Title="Status" Size="Size.Small" />&nbsp;@Localizer["antivirus_information_amserviceversion"]: @antivirus_information_amserviceversion</MudText>
+                                        <MudItem xs="12" sm="6" md="4">
+                                            <MudCard Elevation="2" Style="height: 100%;">
+                                                <MudCardHeader>
+                                                    <CardHeaderAvatar>
+                                                        <MudAvatar Color="@(antivirus_information_behaviormonitorenabled ? Color.Success : Color.Error)" Variant="Variant.Filled">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Visibility" />
+                                                        </MudAvatar>
+                                                    </CardHeaderAvatar>
+                                                    <CardHeaderContent>
+                                                        <MudText Typo="Typo.h6">@Localizer["behavior_monitoring"]</MudText>
+                                                    </CardHeaderContent>
+                                                </MudCardHeader>
+                                                <MudCardContent>
+                                                    <MudChip T="string" Color="@(antivirus_information_behaviormonitorenabled ? Color.Success : Color.Error)" Icon="@Icons.Material.Filled.Info">
+                                                        @antivirus_information_behaviormonitorenabled_display
+                                                    </MudChip>
+                                                </MudCardContent>
+                                            </MudCard>
+                                        </MudItem>
 
-                                        <MudText Class="mt-5 ml-2" Typo="Typo.h6">Antispyware</MudText>
-                                        <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Info" Color="@(antivirus_information_antispywareenabled ? Color.Success : Color.Error)" Title="Status" Size="Size.Small" />&nbsp;Status: @antivirus_information_antispywareenabled_display</MudText>
-                                        <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.AccessTime" Title="Status" Size="Size.Small" />&nbsp;@Localizer["antivirus_information_antispywaresignaturelastupdated"]: @antivirus_information_antispywaresignaturelastupdated</MudText>
-                                        <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Update" Title="Status" Size="Size.Small" />&nbsp;@Localizer["antivirus_information_antispywaresignatureversion"]: @antivirus_information_antispywaresignatureversion</MudText>
+                                        <MudItem xs="12" sm="6" md="4">
+                                            <MudCard Elevation="2" Style="height: 100%;">
+                                                <MudCardHeader>
+                                                    <CardHeaderAvatar>
+                                                        <MudAvatar Color="@(antivirus_information_istamperprotected ? Color.Success : Color.Error)" Variant="Variant.Filled">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Lock" />
+                                                        </MudAvatar>
+                                                    </CardHeaderAvatar>
+                                                    <CardHeaderContent>
+                                                        <MudText Typo="Typo.h6">@Localizer["tamper_protection"]</MudText>
+                                                    </CardHeaderContent>
+                                                </MudCardHeader>
+                                                <MudCardContent>
+                                                    <MudChip T="string" Color="@(antivirus_information_istamperprotected ? Color.Success : Color.Error)" Icon="@Icons.Material.Filled.Info">
+                                                        @antivirus_information_istamperprotected_display
+                                                    </MudChip>
+                                                </MudCardContent>
+                                            </MudCard>
+                                        </MudItem>
 
-                                        <MudText Class="mt-5 ml-2" Typo="Typo.h6">Antivirus</MudText>
-                                        <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Info" Color="@(antivirus_information_antivirusenabled ? Color.Success : Color.Error)" Title="Status" Size="Size.Small" />&nbsp;Status: @antivirus_information_antivirusenabled_display</MudText>
-                                        <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Update" Title="Status" Size="Size.Small" />&nbsp;@Localizer["antivirus_information_antivirussignaturelastupdated"]: @antivirus_information_antivirussignaturelastupdated</MudText>
-                                        <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.AccessTime" Title="Status" Size="Size.Small" />&nbsp;@Localizer["antivirus_information_antivirussignatureversion"]: @antivirus_information_antivirussignatureversion</MudText>
+                                        @* Row 2 *@
+                                        <MudItem xs="12" sm="6" md="4">
+                                            <MudCard Elevation="2" Style="height: 100%;">
+                                                <MudCardHeader>
+                                                    <CardHeaderAvatar>
+                                                        <MudAvatar Color="@(antivirus_information_onaccessprotectionenabled ? Color.Success : Color.Error)" Variant="Variant.Filled">
+                                                            <MudIcon Icon="@Icons.Material.Filled.TouchApp" />
+                                                        </MudAvatar>
+                                                    </CardHeaderAvatar>
+                                                    <CardHeaderContent>
+                                                        <MudText Typo="Typo.h6">@Localizer["on_access_protection"]</MudText>
+                                                    </CardHeaderContent>
+                                                </MudCardHeader>
+                                                <MudCardContent>
+                                                    <MudChip T="string" Color="@(antivirus_information_onaccessprotectionenabled ? Color.Success : Color.Error)" Icon="@Icons.Material.Filled.Info">
+                                                        @antivirus_information_onaccessprotectionenabled_display
+                                                    </MudChip>
+                                                </MudCardContent>
+                                            </MudCard>
+                                        </MudItem>
 
-                                        <MudText Class="mt-5 ml-2" Typo="Typo.h6">@Localizer["antivirus_information_nis"]</MudText>
-                                        <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Info" Color="@(antivirus_information_nisenabled ? Color.Success : Color.Error)" Title="Status" Size="Size.Small" />&nbsp;Status: @antivirus_information_nisenabled_display</MudText>
-                                        <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Update" Title="Status" Size="Size.Small" />&nbsp;@Localizer["antivirus_information_nisengineversion"]: @antivirus_information_nisengineversion</MudText>
-                                        <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.AccessTime" Title="Status" Size="Size.Small" />&nbsp;@Localizer["antivirus_information_nissignaturelastupdated"]: @antivirus_information_nissignaturelastupdated</MudText>
-                                        <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Update" Title="Status" Size="Size.Small" />&nbsp;@Localizer["antivirus_information_nissignatureversion"]: @antivirus_information_nissignatureversion</MudText>
-                                
-                                        <MudText Class="mt-5 ml-2" Typo="Typo.h6">@Localizer["real_time_protection"]</MudText>
-                                        <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Info" Title="Status" Color="@(antivirus_information_realtimetprotectionenabled ? Color.Success : Color.Error)" Size="Size.Small" />&nbsp;Status: @antivirus_information_realtimetprotectionenabled_display</MudText>
+                                        <MudItem xs="12" sm="6" md="4">
+                                            <MudCard Elevation="2">
+                                                <MudCardHeader>
+                                                    <CardHeaderAvatar>
+                                                        <MudAvatar Color="@(antivirus_information_ioavprotectionenabled ? Color.Success : Color.Error)" Variant="Variant.Filled">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Download" />
+                                                        </MudAvatar>
+                                                    </CardHeaderAvatar>
+                                                    <CardHeaderContent>
+                                                        <MudText Typo="Typo.h6">@Localizer["ioav"]</MudText>
+                                                    </CardHeaderContent>
+                                                </MudCardHeader>
+                                                <MudCardContent>
+                                                    <MudChip T="string" Color="@(antivirus_information_ioavprotectionenabled ? Color.Success : Color.Error)" Icon="@Icons.Material.Filled.Info">
+                                                        @antivirus_information_ioavprotectionenabled_display
+                                                    </MudChip>
+                                                </MudCardContent>
+                                            </MudCard>
+                                        </MudItem>
 
-                                        <MudText Class="mt-5 ml-2" Typo="Typo.h6">@Localizer["on_access_protection"]</MudText>
-                                        <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Info" Title="Status" Color="@(antivirus_information_onaccessprotectionenabled ? Color.Success : Color.Error)" Size="Size.Small" />&nbsp;Status: @antivirus_information_onaccessprotectionenabled_display</MudText>
+                                        @* Antimalware Card *@
+                                        <MudItem xs="12" md="6">
+                                            <MudCard Elevation="2" Style="height: 100%;">
+                                                <MudCardHeader>
+                                                    <CardHeaderAvatar>
+                                                        <MudAvatar Color="@(antivirus_information_amserviceenabled ? Color.Success : Color.Error)" Variant="Variant.Filled">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Security" />
+                                                        </MudAvatar>
+                                                    </CardHeaderAvatar>
+                                                    <CardHeaderContent>
+                                                        <MudText Typo="Typo.h6">Antimalware</MudText>
+                                                        <MudChip T="string" Size="Size.Small" Color="@(antivirus_information_amserviceenabled ? Color.Success : Color.Error)">
+                                                            @antivirus_information_amserviceenabled_display
+                                                        </MudChip>
+                                                    </CardHeaderContent>
+                                                </MudCardHeader>
+                                                <MudCardContent>
+                                                    <MudStack Spacing="2">
+                                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                                            <MudText Typo="Typo.body2" Class="d-flex align-center">
+                                                                <MudIcon Icon="@Icons.Material.Filled.Update" Size="Size.Small" Class="mr-2" />
+                                                                @Localizer["antivirus_information_amengineversion"]
+                                                            </MudText>
+                                                            <MudText Typo="Typo.body2"><strong>@antivirus_information_amengineversion</strong></MudText>
+                                                        </MudStack>
+                                                        <MudDivider />
+                                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                                            <MudText Typo="Typo.body2" Class="d-flex align-center">
+                                                                <MudIcon Icon="@Icons.Material.Filled.Update" Size="Size.Small" Class="mr-2" />
+                                                                @Localizer["antivirus_information_amproductversion"]
+                                                            </MudText>
+                                                            <MudText Typo="Typo.body2"><strong>@antivirus_information_amproductversion</strong></MudText>
+                                                        </MudStack>
+                                                        <MudDivider />
+                                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                                            <MudText Typo="Typo.body2" Class="d-flex align-center">
+                                                                <MudIcon Icon="@Icons.Material.Filled.Update" Size="Size.Small" Class="mr-2" />
+                                                                @Localizer["antivirus_information_amserviceversion"]
+                                                            </MudText>
+                                                            <MudText Typo="Typo.body2"><strong>@antivirus_information_amserviceversion</strong></MudText>
+                                                        </MudStack>
+                                                    </MudStack>
+                                                </MudCardContent>
+                                            </MudCard>
+                                        </MudItem>
 
-                                        <MudText Class="mt-5 ml-2" Typo="Typo.h6">@Localizer["behavior_monitoring"]</MudText>
-                                        <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Info" Title="Status" Color="@(antivirus_information_behaviormonitorenabled ? Color.Success : Color.Error)" Size="Size.Small" />&nbsp;Status: @antivirus_information_behaviormonitorenabled_display</MudText>
+                                        @* Antivirus Card *@
+                                        <MudItem xs="12" md="6">
+                                            <MudCard Elevation="2" Style="height: 100%;">
+                                                <MudCardHeader>
+                                                    <CardHeaderAvatar>
+                                                        <MudAvatar Color="@(antivirus_information_antivirusenabled ? Color.Success : Color.Error)" Variant="Variant.Filled">
+                                                            <MudIcon Icon="@Icons.Material.Filled.BugReport" />
+                                                        </MudAvatar>
+                                                    </CardHeaderAvatar>
+                                                    <CardHeaderContent>
+                                                        <MudText Typo="Typo.h6">Antivirus</MudText>
+                                                        <MudChip T="string" Size="Size.Small" Color="@(antivirus_information_antivirusenabled ? Color.Success : Color.Error)">
+                                                            @antivirus_information_antivirusenabled_display
+                                                        </MudChip>
+                                                    </CardHeaderContent>
+                                                </MudCardHeader>
+                                                <MudCardContent>
+                                                    <MudStack Spacing="2">
+                                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                                            <MudText Typo="Typo.body2" Class="d-flex align-center">
+                                                                <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Class="mr-2" />
+                                                                @Localizer["antivirus_information_antivirussignaturelastupdated"]
+                                                            </MudText>
+                                                            <MudText Typo="Typo.body2"><strong>@antivirus_information_antivirussignaturelastupdated</strong></MudText>
+                                                        </MudStack>
+                                                        <MudDivider />
+                                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                                            <MudText Typo="Typo.body2" Class="d-flex align-center">
+                                                                <MudIcon Icon="@Icons.Material.Filled.Update" Size="Size.Small" Class="mr-2" />
+                                                                @Localizer["antivirus_information_antivirussignatureversion"]
+                                                            </MudText>
+                                                            <MudText Typo="Typo.body2"><strong>@antivirus_information_antivirussignatureversion</strong></MudText>
+                                                        </MudStack>
+                                                    </MudStack>
+                                                </MudCardContent>
+                                            </MudCard>
+                                        </MudItem>
 
-                                        <MudText Class="mt-5 ml-2" Typo="Typo.h6">@Localizer["ioav"]</MudText>
-                                        <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Info" Title="Status" Color="@(antivirus_information_ioavprotectionenabled ? Color.Success : Color.Error)" Size="Size.Small" />&nbsp;Status: @antivirus_information_ioavprotectionenabled_display</MudText>
+                                        @* Antispyware Card *@
+                                        <MudItem xs="12" md="6">
+                                            <MudCard Elevation="2" Style="height: 100%;">
+                                                <MudCardHeader>
+                                                    <CardHeaderAvatar>
+                                                        <MudAvatar Color="@(antivirus_information_antispywareenabled ? Color.Success : Color.Error)" Variant="Variant.Filled">
+                                                            <MudIcon Icon="@Icons.Material.Filled.RemoveRedEye" />
+                                                        </MudAvatar>
+                                                    </CardHeaderAvatar>
+                                                    <CardHeaderContent>
+                                                        <MudText Typo="Typo.h6">Antispyware</MudText>
+                                                        <MudChip T="string" Size="Size.Small" Color="@(antivirus_information_antispywareenabled ? Color.Success : Color.Error)">
+                                                            @antivirus_information_antispywareenabled_display
+                                                        </MudChip>
+                                                    </CardHeaderContent>
+                                                </MudCardHeader>
+                                                <MudCardContent>
+                                                    <MudStack Spacing="2">
+                                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                                            <MudText Typo="Typo.body2" Class="d-flex align-center">
+                                                                <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Class="mr-2" />
+                                                                @Localizer["antivirus_information_antispywaresignaturelastupdated"]
+                                                            </MudText>
+                                                            <MudText Typo="Typo.body2"><strong>@antivirus_information_antispywaresignaturelastupdated</strong></MudText>
+                                                        </MudStack>
+                                                        <MudDivider />
+                                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                                            <MudText Typo="Typo.body2" Class="d-flex align-center">
+                                                                <MudIcon Icon="@Icons.Material.Filled.Update" Size="Size.Small" Class="mr-2" />
+                                                                @Localizer["antivirus_information_antispywaresignatureversion"]
+                                                            </MudText>
+                                                            <MudText Typo="Typo.body2"><strong>@antivirus_information_antispywaresignatureversion</strong></MudText>
+                                                        </MudStack>
+                                                    </MudStack>
+                                                </MudCardContent>
+                                            </MudCard>
+                                        </MudItem>
 
-                                        <MudText Class="mt-5 ml-2" Typo="Typo.h6">@Localizer["tamper_protection"]</MudText>
-                                            <MudText Class="ml-2 d-flex align-center" Typo="Typo.body1"><MudIcon Icon="@Icons.Material.Filled.Info" Title="Status" Color="@(antivirus_information_istamperprotected ? Color.Success : Color.Error)" Size="Size.Small" />&nbsp;Status: @antivirus_information_istamperprotected_display</MudText>
-                                
-                                    </MudPaper>
+                                        @* NIS Card *@
+                                        <MudItem xs="12" md="6">
+                                            <MudCard Elevation="2" Style="height: 100%;">
+                                                <MudCardHeader>
+                                                    <CardHeaderAvatar>
+                                                        <MudAvatar Color="@(antivirus_information_nisenabled ? Color.Success : Color.Error)" Variant="Variant.Filled">
+                                                            <MudIcon Icon="@Icons.Material.Filled.NetworkCheck" />
+                                                        </MudAvatar>
+                                                    </CardHeaderAvatar>
+                                                    <CardHeaderContent>
+                                                        <MudText Typo="Typo.h6">@Localizer["antivirus_information_nis"]</MudText>
+                                                        <MudChip T="string" Size="Size.Small" Color="@(antivirus_information_nisenabled ? Color.Success : Color.Error)">
+                                                            @antivirus_information_nisenabled_display
+                                                        </MudChip>
+                                                    </CardHeaderContent>
+                                                </MudCardHeader>
+                                                <MudCardContent>
+                                                    <MudStack Spacing="2">
+                                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                                            <MudText Typo="Typo.body2" Class="d-flex align-center">
+                                                                <MudIcon Icon="@Icons.Material.Filled.Update" Size="Size.Small" Class="mr-2" />
+                                                                @Localizer["antivirus_information_nisengineversion"]
+                                                            </MudText>
+                                                            <MudText Typo="Typo.body2"><strong>@antivirus_information_nisengineversion</strong></MudText>
+                                                        </MudStack>
+                                                        <MudDivider />
+                                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                                            <MudText Typo="Typo.body2" Class="d-flex align-center">
+                                                                <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Class="mr-2" />
+                                                                @Localizer["antivirus_information_nissignaturelastupdated"]
+                                                            </MudText>
+                                                            <MudText Typo="Typo.body2"><strong>@antivirus_information_nissignaturelastupdated</strong></MudText>
+                                                        </MudStack>
+                                                        <MudDivider />
+                                                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                                            <MudText Typo="Typo.body2" Class="d-flex align-center">
+                                                                <MudIcon Icon="@Icons.Material.Filled.Update" Size="Size.Small" Class="mr-2" />
+                                                                @Localizer["antivirus_information_nissignatureversion"]
+                                                            </MudText>
+                                                            <MudText Typo="Typo.body2"><strong>@antivirus_information_nissignatureversion</strong></MudText>
+                                                        </MudStack>
+                                                    </MudStack>
+                                                </MudCardContent>
+                                            </MudCard>
+                                        </MudItem>
+
+                                    </MudGrid>
 
                                 </MudTabPanel>
                             }

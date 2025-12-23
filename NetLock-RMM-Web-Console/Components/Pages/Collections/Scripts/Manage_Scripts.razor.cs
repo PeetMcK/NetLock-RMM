@@ -174,10 +174,10 @@ namespace NetLock_RMM_Web_Console.Components.Pages.Collections.Scripts
                 row.script_json.Contains(scripts_table_search_string, StringComparison.OrdinalIgnoreCase);
         }
 
-        private string scripts_selectedRowContent_id = String.Empty; // Hier wird der Inhalt der ausgewählten Zeile gespeichert
-        private string scripts_selectedRowContent_json = String.Empty; // Hier wird der Inhalt der ausgewählten Zeile gespeichert
+        private string scripts_selectedRowContent_id = String.Empty; // Hier wird der Inhalt der ausgewï¿½hlten Zeile gespeichert
+        private string scripts_selectedRowContent_json = String.Empty; // Hier wird der Inhalt der ausgewï¿½hlten Zeile gespeichert
 
-        // Der Handler für den TableRowClick-Event
+        // Der Handler fï¿½r den TableRowClick-Event
         private void Scripts_RowClickHandler(Scripts_Entity row)
         {
             scripts_selectedRowContent_id = row.id;
@@ -273,6 +273,52 @@ namespace NetLock_RMM_Web_Console.Components.Pages.Collections.Scripts
                 scripts_selectedRowContent_json = String.Empty;
 
                 await Scripts_Load();
+            }
+        }
+
+        private async Task Duplicate_Script_Dialog(string json)
+        {
+            if (String.IsNullOrWhiteSpace(json))
+                return;
+
+            try
+            {
+                // Deserialize to get the script name
+                var script_object = JsonSerializer.Deserialize<Script>(json);
+                
+                if (script_object == null)
+                    return;
+
+                var options = new DialogOptions
+                {
+                    CloseButton = true,
+                    FullWidth = true,
+                    MaxWidth = MaxWidth.Medium,
+                    BackgroundClass = "dialog-blurring",
+                };
+
+                DialogParameters parameters = new DialogParameters();
+                parameters.Add("OriginalScriptName", script_object.name);
+                parameters.Add("ScriptJson", json);
+
+                var result = await this.DialogService.Show<Pages.Collections.Scripts.Dialogs.Duplicate_Script_Dialog>(string.Empty, parameters, options).Result;
+
+                if (result.Canceled)
+                    return;
+
+                Logging.Handler.Debug("/manage_scripts -> Duplicate_Script_Dialog", "Result", result.Data?.ToString() ?? "null");
+
+                if (!String.IsNullOrEmpty(result.Data?.ToString()))
+                {
+                    scripts_selectedRowContent_id = String.Empty;
+                    scripts_selectedRowContent_json = String.Empty;
+
+                    await Scripts_Load();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.Handler.Error("/manage_scripts -> Duplicate_Script_Dialog", "Error", ex.ToString());
             }
         }
 
@@ -380,11 +426,11 @@ namespace NetLock_RMM_Web_Console.Components.Pages.Collections.Scripts
             {
                 string jsonContent = String.Empty;
 
-                // Erstellen eines JSON-Strings aus den MudTable-Einträgen
+                // Erstellen eines JSON-Strings aus den MudTable-Eintrï¿½gen
                 if (type == "scripts")
                     jsonContent = JsonSerializer.Serialize(scripts_mysql_data, new JsonSerializerOptions { WriteIndented = true });
 
-                // Aufruf der JavaScript-Funktion für den Export als .txt
+                // Aufruf der JavaScript-Funktion fï¿½r den Export als .txt
                 await JSRuntime.InvokeVoidAsync("exportToTxt", $"{type}.json", jsonContent);
             }
             catch (Exception ex)
@@ -409,7 +455,7 @@ namespace NetLock_RMM_Web_Console.Components.Pages.Collections.Scripts
                     }
                     htmlBuilder.Append("</tr>");
 
-                    // Baue die Tabelleneinträge basierend auf den Daten
+                    // Baue die Tabelleneintrï¿½ge basierend auf den Daten
                     foreach (var entry in scripts_mysql_data)
                     {
                         htmlBuilder.Append("<tr>");

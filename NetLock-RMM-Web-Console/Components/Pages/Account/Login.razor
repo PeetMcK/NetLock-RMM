@@ -1,6 +1,8 @@
 ﻿@page "/"
 @page "/login"
 
+@implements IDisposable
+
 @using Microsoft.AspNetCore.Components.Authorization;
 @using Microsoft.AspNetCore.Authentication;
 @using Microsoft.AspNetCore.Authentication.Cookies;
@@ -59,6 +61,23 @@
         z-index: 9999;
         user-select: none;
         overflow-y: auto;
+    }
+
+    /* Blood Particles Canvas for Login Page */
+    #blood-particles-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 1;
+        opacity: 0.6;
+    }
+
+    .screen-1 {
+        position: relative;
+        z-index: 2;
     }
 
     .login-page-wrapper * {
@@ -293,6 +312,7 @@
     .mud-theme-dark .fun-fact,
     body.mud-theme-dark .fun-fact {
         color: hsl(0deg 0% 80%) !important;
+        text-shadow: 0 0 15px rgba(220, 20, 60, 0.5) !important;
     }
 
     .logo-container {
@@ -307,6 +327,46 @@
         width: 200px;
         height: auto;
         filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+        animation: bloodPulse 3.5s ease-in-out infinite;
+    }
+
+    /* Pulsating Red Glow Animation */
+    @@keyframes bloodPulse {
+        0% {
+            filter: drop-shadow(0 0 5px rgba(145, 0, 18, 0.3)) 
+                    drop-shadow(0 0 10px rgba(145, 0, 18, 0.2));
+        }
+        50% {
+            filter: drop-shadow(0 0 20px rgba(220, 20, 60, 0.8)) 
+                    drop-shadow(0 0 40px rgba(220, 20, 60, 0.5))
+                    drop-shadow(0 0 60px rgba(145, 0, 18, 0.3));
+        }
+        100% {
+            filter: drop-shadow(0 0 5px rgba(145, 0, 18, 0.3)) 
+                    drop-shadow(0 0 10px rgba(145, 0, 18, 0.2));
+        }
+    }
+
+    /* Enhanced pulsing in dark mode */
+    .mud-theme-dark .logo-container img,
+    body.mud-theme-dark .logo-container img {
+        animation: bloodPulseDark 3.5s ease-in-out infinite;
+    }
+
+    @@keyframes bloodPulseDark {
+        0% {
+            filter: drop-shadow(0 0 8px rgba(220, 20, 60, 0.4)) 
+                    drop-shadow(0 0 15px rgba(220, 20, 60, 0.3));
+        }
+        50% {
+            filter: drop-shadow(0 0 30px rgba(255, 50, 70, 1)) 
+                    drop-shadow(0 0 50px rgba(220, 20, 60, 0.7))
+                    drop-shadow(0 0 80px rgba(145, 0, 18, 0.5));
+        }
+        100% {
+            filter: drop-shadow(0 0 8px rgba(220, 20, 60, 0.4)) 
+                    drop-shadow(0 0 15px rgba(220, 20, 60, 0.3));
+        }
     }
 
     .login-title {
@@ -507,7 +567,48 @@
         font-weight: 500;
         margin-top: 2em;
         padding: 0 2em;
-        animation: fadeIn 1s ease-in;
+        animation: crypticFadeIn 1.5s ease-out;
+        text-shadow: 0 0 10px rgba(145, 0, 18, 0.3);
+        letter-spacing: 0.5px;
+        font-style: italic;
+    }
+
+    .fun-fact.fade-out {
+        animation: crypticFadeOut 1s ease-in forwards;
+    }
+
+    @@keyframes crypticFadeIn {
+        0% {
+            opacity: 0;
+            filter: blur(10px);
+            transform: translateY(20px) scale(0.95);
+            text-shadow: 0 0 20px rgba(145, 0, 18, 0.8);
+        }
+        50% {
+            opacity: 0.5;
+            filter: blur(5px);
+            text-shadow: 0 0 15px rgba(145, 0, 18, 0.6);
+        }
+        100% {
+            opacity: 1;
+            filter: blur(0px);
+            transform: translateY(0) scale(1);
+            text-shadow: 0 0 10px rgba(145, 0, 18, 0.3);
+        }
+    }
+
+    @@keyframes crypticFadeOut {
+        0% {
+            opacity: 1;
+            filter: blur(0px);
+            transform: translateY(0) scale(1);
+        }
+        100% {
+            opacity: 0;
+            filter: blur(10px);
+            transform: translateY(-20px) scale(0.95);
+            text-shadow: 0 0 20px rgba(145, 0, 18, 0.8);
+        }
     }
 
     @@keyframes slideIn {
@@ -605,6 +706,9 @@
 <AuthorizeView>
     <NotAuthorized>
         <div class="login-page-wrapper">
+            <!-- Blood Particles Canvas -->
+            <canvas id="blood-particles-canvas"></canvas>
+            
             <div class="screen-1">
                 <div class="logo-container">
                     @if (!string.IsNullOrEmpty(NetLock_RMM_Web_Console.Configuration.Web_Console.logoBase64))
@@ -613,7 +717,7 @@
                     }
                     else
                     {
-                        <img src="media/images/NetLock-RMM-Logo-Transparent.png" alt="NetLock RMM Logo" />
+                        <img src="media/images/NetLock-Logo-Dark-Transparent.png" alt="NetLock RMM Logo" />
                     }
                 </div>
 
@@ -883,7 +987,7 @@
 
             @if (!string.IsNullOrEmpty(funFact))
             {
-                <p class="fun-fact">"@funFact"</p>
+                <p class="fun-fact @funFactFadeClass" @key="funFactKey">"@funFact"</p>
             }
         </div>
 
@@ -894,7 +998,6 @@
 </AuthorizeView>
 
 @code {
-
     private string netlock_username = String.Empty;
     private bool permissions_dashboard_enabled = false;
     public static List<string> permissions_tenants_list = new List<string> { };
@@ -953,6 +1056,56 @@
     {
         if (firstRender)
         {
+            // Initialize blood particles animation with retry
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("eval", @"
+                    (function() {
+                        console.log('Starting blood particles initialization...');
+                        
+                        function tryInit() {
+                            const canvas = document.getElementById('blood-particles-canvas');
+                            console.log('Canvas element:', canvas);
+                            
+                            if (!canvas) {
+                                console.warn('Canvas not found, retrying...');
+                                setTimeout(tryInit, 100);
+                                return;
+                            }
+                            
+                            if (typeof window.initBloodParticles === 'function') {
+                                console.log('initBloodParticles found, calling it...');
+                                window.initBloodParticles();
+                            } else {
+                                console.log('Loading blood-particles.js...');
+                                const script = document.createElement('script');
+                                script.src = '/js/blood-particles.js?v=' + Date.now();
+                                script.onload = function() {
+                                    console.log('Script loaded, initializing...');
+                                    setTimeout(() => {
+                                        if (typeof window.initBloodParticles === 'function') {
+                                            window.initBloodParticles();
+                                        } else {
+                                            console.error('initBloodParticles not found after script load');
+                                        }
+                                    }, 50);
+                                };
+                                script.onerror = function(e) {
+                                    console.error('Failed to load blood-particles.js:', e);
+                                };
+                                document.head.appendChild(script);
+                            }
+                        }
+                        
+                        tryInit();
+                    })();
+                ");
+            }
+            catch (Exception ex)
+            {
+                Logging.Handler.Error("/login", "BloodParticles", ex.ToString());
+            }
+
             await AfterInitializedAsync();
         }
     }
@@ -1006,9 +1159,47 @@
         StateHasChanged();
 
         funFact = await Classes.Miscellaneous.FunFacts.GetRandomFact();
+        
+        // Start Fun Fact rotation timer
+        StartFunFactRotation();
 
         loading_overlay = false;
         StateHasChanged();
+    }
+
+    private System.Threading.Timer funFactTimer;
+    private string funFact = String.Empty;
+    private string funFactFadeClass = "";
+    private int funFactKey = 0;
+
+    private void StartFunFactRotation()
+    {
+        // Rotate fun facts every 10 seconds
+        funFactTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                // Add fade-out class
+                funFactFadeClass = "fade-out";
+                StateHasChanged();
+
+                // Wait for fade-out animation (1 second)
+                await Task.Delay(1000);
+
+                // Get new fun fact
+                funFact = await Classes.Miscellaneous.FunFacts.GetRandomFact();
+                funFactKey++; // Change key to force re-render with new animation
+                
+                // Remove fade-out class (will trigger fade-in)
+                funFactFadeClass = "";
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+    }
+
+    public void Dispose()
+    {
+        funFactTimer?.Dispose();
     }
 
     private bool loading_overlay = false;
@@ -1054,7 +1245,6 @@
 
     private int invalid_count = 0;
 
-    private string funFact = String.Empty;
 
     private async Task Enter(KeyboardEventArgs e)
     {

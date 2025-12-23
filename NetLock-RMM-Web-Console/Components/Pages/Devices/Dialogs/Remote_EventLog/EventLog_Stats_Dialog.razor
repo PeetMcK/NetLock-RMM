@@ -1,0 +1,189 @@
+@using System.Text.Json.Serialization
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h5">Event Log Statistics - @Stats.LogName</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Status:</strong></MudText>
+                <MudChip T="string" Color="@(Stats.IsEnabled ? Color.Success : Color.Error)" Size="Size.Small">
+                    @(Stats.IsEnabled ? "Enabled" : "Disabled")
+                </MudChip>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Total Entries:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@Stats.TotalEntries.ToString("N0")</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Log Type:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@Stats.LogType</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Log Mode:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@Stats.LogMode</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Maximum Size:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@FormatBytes(Stats.MaximumSizeBytes)</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Log File Path:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3" Style="word-break: break-all;">@Stats.LogFilePath</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Oldest Entry:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@FormatDateTime(Stats.OldestEntry)</MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle2" Class="mb-1"><strong>Newest Entry:</strong></MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@FormatDateTime(Stats.NewestEntry)</MudText>
+            </MudItem>
+
+            @if (Stats.LevelCounts != null && Stats.LevelCounts.Count > 0)
+            {
+                <MudItem xs="12">
+                    <MudDivider Class="my-3" />
+                    <MudText Typo="Typo.h6" Class="mb-3">Event Levels Distribution</MudText>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudPaper Class="pa-4" Elevation="0" Style="background-color: rgba(0,0,0,0.05);">
+                        <MudStack Spacing="2">
+                            @foreach (var level in Stats.LevelCounts.OrderByDescending(x => x.Value))
+                            {
+                                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                    <MudChip T="string" Color="@GetLevelColor(level.Key)" Size="Size.Small">@level.Key</MudChip>
+                                    <MudText Typo="Typo.body2"><strong>@level.Value.ToString("N0")</strong></MudText>
+                                </MudStack>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudChart ChartType="ChartType.Pie" 
+                              InputData="@GetChartData()" 
+                              InputLabels="@GetChartLabels()"
+                              ChartOptions="@GetChartOptions()"
+                              Width="300px" 
+                              Height="300px" />
+                </MudItem>
+            }
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close" Variant="Variant.Filled" Size="Size.Small" Color="Color.Default">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
+    [Parameter] public EventLogStatsResponse Stats { get; set; }
+
+
+    private string FormatBytes(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+
+    private string FormatDateTime(string dateTimeString)
+    {
+        if (string.IsNullOrEmpty(dateTimeString))
+            return "N/A";
+
+        try
+        {
+            if (DateTime.TryParse(dateTimeString, out DateTime dt))
+            {
+                return dt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+            }
+            return dateTimeString;
+        }
+        catch
+        {
+            return dateTimeString;
+        }
+    }
+
+    private double[] GetChartData()
+    {
+        if (Stats.LevelCounts == null || Stats.LevelCounts.Count == 0)
+            return Array.Empty<double>();
+
+        return Stats.LevelCounts.Values.Select(v => (double)v).ToArray();
+    }
+
+    private string[] GetChartLabels()
+    {
+        if (Stats.LevelCounts == null || Stats.LevelCounts.Count == 0)
+            return Array.Empty<string>();
+
+        return Stats.LevelCounts.Keys.ToArray();
+    }
+
+    private ChartOptions GetChartOptions()
+    {
+        var colors = new List<string>();
+        
+        if (Stats.LevelCounts != null && Stats.LevelCounts.Count > 0)
+        {
+            foreach (var levelName in Stats.LevelCounts.Keys)
+            {
+                colors.Add(GetColorHex(levelName));
+            }
+        }
+
+        return new ChartOptions
+        {
+            ChartPalette = colors.ToArray()
+        };
+    }
+
+    private string GetColorHex(string levelName)
+    {
+        return levelName switch
+        {
+            "Critical" => "#f44336",    // Red - Error color
+            "Error" => "#ff9800",       // Orange - Error/Warning mix
+            "Warning" => "#ff9800",     // Orange - Warning color
+            "Information" => "#2196f3", // Blue - Info color
+            "Verbose" => "#9e9e9e",     // Grey - Default color
+            _ => "#9e9e9e"              // Grey - Default
+        };
+    }
+
+    private Color GetLevelColor(string levelName)
+    {
+        return levelName switch
+        {
+            "Critical" => Color.Error,
+            "Error" => Color.Error,
+            "Warning" => Color.Warning,
+            "Information" => Color.Info,
+            "Verbose" => Color.Default,
+            _ => Color.Default
+        };
+    }
+
+    private void Close()
+    {
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+}

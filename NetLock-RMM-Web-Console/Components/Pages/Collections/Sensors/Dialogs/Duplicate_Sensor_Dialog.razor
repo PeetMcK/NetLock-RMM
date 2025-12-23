@@ -1,0 +1,218 @@
+@using MySqlConnector;
+@using System.Data.Common;
+@using System.Text.Json;
+@using System.Security.Claims
+
+@inject NavigationManager NavigationManager
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Duplicate Sensor</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            Create a duplicate of sensor: <strong>@OriginalSensorName</strong>
+        </MudText>
+        <MudTextField Label="New Sensor Name" T="string" @bind-Value="@new_sensor_name" Immediate="@true" Variant="Variant.Outlined" />
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Size="@Size.Small" Color="@Color.Info" OnClick="@OK" Disabled="@Form_Valid()">
+            <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Class="mr-1" />
+            Duplicate
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private string netlock_username = string.Empty;
+    private string new_sensor_name = string.Empty;
+
+    [Parameter]
+    public string OriginalSensorName { get; set; } = string.Empty;
+
+    [Parameter]
+    public string SensorJson { get; set; } = string.Empty;
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private bool Form_Valid()
+    {
+        return String.IsNullOrWhiteSpace(new_sensor_name);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Get the current user from the authentication state
+        var user = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+
+        // Check if user is authenticated
+        if (user?.Identity is not { IsAuthenticated: true })
+        {
+            NavigationManager.NavigateTo("/login", true);
+            return;
+        }
+
+        // Retrieve email from claims
+        netlock_username = user.FindFirst(ClaimTypes.Email)?.Value;
+
+        // Pre-fill with original name + " (Copy)"
+        new_sensor_name = $"{OriginalSensorName} (Copy)";
+    }
+
+    private async Task OK()
+    {
+        if (String.IsNullOrWhiteSpace(new_sensor_name))
+        {
+            this.Snackbar.Configuration.ShowCloseIcon = true;
+            this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+            this.Snackbar.Add("Sensor name cannot be empty", Severity.Error);
+            return;
+        }
+
+        MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
+
+        try
+        {
+            await conn.OpenAsync();
+
+            // Check if sensor name already exists
+            string check_query = "SELECT COUNT(*) FROM sensors WHERE name = @name;";
+            MySqlCommand check_cmd = new MySqlCommand(check_query, conn);
+            check_cmd.Parameters.AddWithValue("@name", new_sensor_name);
+
+            long count = (long)(await check_cmd.ExecuteScalarAsync() ?? 0);
+
+            if (count > 0)
+            {
+                this.Snackbar.Configuration.ShowCloseIcon = true;
+                this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+                this.Snackbar.Add($"Sensor with name '{new_sensor_name}' already exists", Severity.Warning);
+                return;
+            }
+
+            // Read the original sensor from database - get all fields
+            string read_query = "SELECT * FROM sensors WHERE name = @original_name LIMIT 1;";
+            MySqlCommand read_cmd = new MySqlCommand(read_query, conn);
+            read_cmd.Parameters.AddWithValue("@original_name", OriginalSensorName);
+
+            string description = "";
+            string platform = "";
+            int? category = null;
+            int? sub_category = null;
+            int? severity = null;
+            int? script_id = null;
+            int? script_action_id = null;
+            string original_json = "";
+
+            using (var reader = await read_cmd.ExecuteReaderAsync())
+            {
+                if (await reader.ReadAsync())
+                {
+                    description = reader["description"]?.ToString() ?? "";
+                    platform = reader["platform"]?.ToString() ?? "";
+                    category = reader["category"] != DBNull.Value ? Convert.ToInt32(reader["category"]) : null;
+                    sub_category = reader["sub_category"] != DBNull.Value ? Convert.ToInt32(reader["sub_category"]) : null;
+                    severity = reader["severity"] != DBNull.Value ? Convert.ToInt32(reader["severity"]) : null;
+                    script_id = reader["script_id"] != DBNull.Value ? Convert.ToInt32(reader["script_id"]) : null;
+                    script_action_id = reader["script_action_id"] != DBNull.Value ? Convert.ToInt32(reader["script_action_id"]) : null;
+                    original_json = reader["json"]?.ToString() ?? "";
+                }
+                else
+                {
+                    this.Snackbar.Add("Original sensor not found in database", Severity.Error);
+                    return;
+                }
+            }
+
+            // Update the JSON with new name, author and date
+            var original_sensor = JsonSerializer.Deserialize<JsonDocument>(original_json);
+            if (original_sensor == null)
+            {
+                this.Snackbar.Add("Failed to parse sensor JSON", Severity.Error);
+                return;
+            }
+
+            var properties = new Dictionary<string, object>();
+            foreach (var prop in original_sensor.RootElement.EnumerateObject())
+            {
+                if (prop.Name == "name")
+                    properties["name"] = new_sensor_name;
+                else if (prop.Name == "author")
+                    properties["author"] = netlock_username ?? "";
+                else if (prop.Name == "date")
+                    properties["date"] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                else
+                {
+                    // Copy the property value as-is
+                    properties[prop.Name] = JsonSerializer.Deserialize<object>(prop.Value.GetRawText());
+                }
+            }
+
+            string new_sensor_json = JsonSerializer.Serialize(properties, new JsonSerializerOptions { WriteIndented = true });
+
+            // Insert the duplicated sensor with all fields
+            string insert_query = @"INSERT INTO sensors 
+                (name, description, platform, category, sub_category, severity, script_id, script_action_id, json, date, author) 
+                VALUES (@name, @description, @platform, @category, @sub_category, @severity, @script_id, @script_action_id, @json, @date, @author);";
+
+            MySqlCommand cmd = new MySqlCommand(insert_query, conn);
+            cmd.Parameters.AddWithValue("@name", new_sensor_name);
+            cmd.Parameters.AddWithValue("@description", description);
+            cmd.Parameters.AddWithValue("@platform", platform);
+            cmd.Parameters.AddWithValue("@category", category.HasValue ? (object)category.Value : DBNull.Value);
+            cmd.Parameters.AddWithValue("@sub_category", sub_category.HasValue ? (object)sub_category.Value : DBNull.Value);
+            cmd.Parameters.AddWithValue("@severity", severity.HasValue ? (object)severity.Value : DBNull.Value);
+            cmd.Parameters.AddWithValue("@script_id", script_id.HasValue ? (object)script_id.Value : DBNull.Value);
+            cmd.Parameters.AddWithValue("@script_action_id", script_action_id.HasValue ? (object)script_action_id.Value : DBNull.Value);
+            cmd.Parameters.AddWithValue("@json", new_sensor_json);
+            cmd.Parameters.AddWithValue("@date", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            cmd.Parameters.AddWithValue("@author", netlock_username);
+
+            int rows_affected = await cmd.ExecuteNonQueryAsync();
+
+            if (rows_affected > 0)
+            {
+                this.Snackbar.Configuration.ShowCloseIcon = true;
+                this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+                this.Snackbar.Add($"Sensor '{OriginalSensorName}' successfully duplicated to '{new_sensor_name}'", Severity.Success);
+
+                Logging.Handler.Debug("Duplicate_Sensor_Dialog", "Success", $"Duplicated '{OriginalSensorName}' to '{new_sensor_name}'");
+
+                MudDialog.Close(DialogResult.Ok(new_sensor_name));
+            }
+            else
+            {
+                this.Snackbar.Configuration.ShowCloseIcon = true;
+                this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+                this.Snackbar.Add("Failed to duplicate sensor", Severity.Error);
+
+                MudDialog.Close(DialogResult.Cancel());
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("Duplicate_Sensor_Dialog", "Error", ex.ToString());
+            this.Snackbar.Configuration.ShowCloseIcon = true;
+            this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+            this.Snackbar.Add("Error duplicating sensor: " + ex.Message, Severity.Error);
+
+            MudDialog.Close(DialogResult.Cancel());
+        }
+        finally
+        {
+            await conn.CloseAsync();
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}
+

@@ -245,27 +245,27 @@ namespace Global.Device_Information
                         switch (packageManager.ToLower())
                         {
                             case "apt":
-                                installedPackages = Linux.Helper.Bash.Execute_Script("Applications_Installed", false, "apt list --installed 2>/dev/null");
+                                installedPackages = Linux.Helper.Bash.Execute_Script("Applications_Installed", false, "apt list --installed 2>/dev/null",0);
                                 Linux.Helper.Package_Manager.ParseAptPackages(installedPackages, applications_installedJsonList, currentApplications);
                                 break;
                                 
                             case "yum":
-                                installedPackages = Linux.Helper.Bash.Execute_Script("Applications_Installed", false, "yum list installed 2>/dev/null");
+                                installedPackages = Linux.Helper.Bash.Execute_Script("Applications_Installed", false, "yum list installed 2>/dev/null",0);
                                 Linux.Helper.Package_Manager.ParseYumPackages(installedPackages, applications_installedJsonList, currentApplications, "yum");
                                 break;
                                 
                             case "dnf":
-                                installedPackages = Linux.Helper.Bash.Execute_Script("Applications_Installed", false, "dnf list installed 2>/dev/null");
+                                installedPackages = Linux.Helper.Bash.Execute_Script("Applications_Installed", false, "dnf list installed 2>/dev/null",0);
                                 Linux.Helper.Package_Manager.ParseYumPackages(installedPackages, applications_installedJsonList, currentApplications, "dnf");
                                 break;
                                 
                             case "zypper":
-                                installedPackages = Linux.Helper.Bash.Execute_Script("Applications_Installed", false, "zypper se --installed-only 2>/dev/null");
+                                installedPackages = Linux.Helper.Bash.Execute_Script("Applications_Installed", false, "zypper se --installed-only 2>/dev/null",0);
                                 Linux.Helper.Package_Manager.ParseZypperPackages(installedPackages, applications_installedJsonList, currentApplications);
                                 break;
                                 
                             case "pacman":
-                                installedPackages = Linux.Helper.Bash.Execute_Script("Applications_Installed", false, "pacman -Q 2>/dev/null");
+                                installedPackages = Linux.Helper.Bash.Execute_Script("Applications_Installed", false, "pacman -Q 2>/dev/null",0);
                                 Linux.Helper.Package_Manager.ParsePacmanPackages(installedPackages, applications_installedJsonList, currentApplications);
                                 break;
                                 
@@ -298,7 +298,7 @@ namespace Global.Device_Information
                 try
                 {
                     // Execute the command to get the list of installed applications
-                    var installedApplications = MacOS.Helper.Zsh.Execute_Script("Applications", false, "system_profiler SPApplicationsDataType -json");
+                    var installedApplications = MacOS.Helper.Zsh.Execute_Script("Applications", false, "system_profiler SPApplicationsDataType -json",0);
 
                     // Parse the JSON output from system_profiler
                     var jsonOutput = JsonDocument.Parse(installedApplications);
@@ -791,7 +791,7 @@ namespace Global.Device_Information
                     List<string> applications_servicesJsonList = new List<string>();
 
                     // Execute the systemctl command to list services
-                    string output = Linux.Helper.Bash.Execute_Script("Applications_Services", false, "systemctl list-units --type=service --all --no-pager");
+                    string output = Linux.Helper.Bash.Execute_Script("Applications_Services", false, "systemctl list-units --type=service --all --no-pager",0);
 
                     // Split the output into lines (each line corresponds to a service)
                     var lines = output.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
@@ -854,7 +854,7 @@ namespace Global.Device_Information
                     List<string> applications_servicesJsonList = new List<string>();
 
                     // Execute the launchctl command to list services
-                    string output = MacOS.Helper.Zsh.Execute_Script("Services", false, "launchctl list");
+                    string output = MacOS.Helper.Zsh.Execute_Script("Services", false, "launchctl list",0);
 
                     // Split the output into lines (each line corresponds to a service)
                     var lines = output.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
@@ -873,7 +873,7 @@ namespace Global.Device_Information
 
                                 // Extract more details from the plist file
                                 string plistPath = $"/Library/LaunchDaemons/{label}.plist";
-                                string plistContent = MacOS.Helper.Zsh.Execute_Script("Plist", false, $"plutil -p \"{plistPath}\"");
+                                string plistContent = MacOS.Helper.Zsh.Execute_Script("Plist", false, $"plutil -p \"{plistPath}\"",0);
 
                                 string startType = plistContent.Contains("KeepAlive") ? "Automatic" : "Manual";
                                 string loginAs = plistContent.Contains("UserName") ? "User Defined" : "root";
@@ -1177,7 +1177,7 @@ namespace Global.Device_Information
                 try
                 {
                     // Use `awk` or better parsing command
-                    string output = Linux.Helper.Bash.Execute_Script("Cronjobs", false, "systemctl list-timers --all --no-pager | awk 'NR>1 {for(i=1;i<=NF;i++) printf \"%s|\", $i; printf \"\\n\"}'");
+                    string output = Linux.Helper.Bash.Execute_Script("Cronjobs", false, "systemctl list-timers --all --no-pager | awk 'NR>1 {for(i=1;i<=NF;i++) printf \"%s|\", $i; printf \"\\n\"}'",0);
                     // Split output into lines
                     var lines = output.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
 

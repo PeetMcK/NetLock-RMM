@@ -1,0 +1,216 @@
+@using MySqlConnector;
+@using System.Data.Common;
+@using System.Text.Json;
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Microsoft.AspNetCore.DataProtection
+@using System.Security.Claims
+
+@inject NavigationManager NavigationManager
+@inject ILocalStorageService localStorage
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+@inject IDataProtectionProvider DataProtectionProvider
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Duplicate Script</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            Create a duplicate of script: <strong>@OriginalScriptName</strong>
+        </MudText>
+        <MudTextField Label="New Script Name" T="string" @bind-Value="@new_script_name" Immediate="@true" Variant="Variant.Outlined" />
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Size="@Size.Small" Color="@Color.Info" OnClick="@OK" Disabled="@Form_Valid()">
+            <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Class="mr-1" />
+            Duplicate
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private string netlock_username = string.Empty;
+    private string new_script_name = string.Empty;
+
+    [Parameter]
+    public string OriginalScriptName { get; set; } = string.Empty;
+
+    [Parameter]
+    public string ScriptJson { get; set; } = string.Empty;
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private bool Form_Valid()
+    {
+        return String.IsNullOrWhiteSpace(new_script_name);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Get the current user from the authentication state
+        var user = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+
+        // Check if user is authenticated
+        if (user?.Identity is not { IsAuthenticated: true })
+        {
+            NavigationManager.NavigateTo("/login", true);
+            return;
+        }
+
+        // Retrieve email from claims
+        netlock_username = user.FindFirst(ClaimTypes.Email)?.Value;
+
+        // Pre-fill with original name + " (Copy)"
+        new_script_name = $"{OriginalScriptName} (Copy)";
+    }
+
+    private async Task OK()
+    {
+        if (String.IsNullOrWhiteSpace(new_script_name))
+        {
+            this.Snackbar.Configuration.ShowCloseIcon = true;
+            this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+            this.Snackbar.Add("Script name cannot be empty", Severity.Error);
+            return;
+        }
+
+        MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
+        bool name_exists = false;
+
+        try
+        {
+            await conn.OpenAsync();
+
+            // Check if script name already exists
+            string check_query = "SELECT COUNT(*) FROM scripts WHERE name = @name;";
+            MySqlCommand check_cmd = new MySqlCommand(check_query, conn);
+            check_cmd.Parameters.AddWithValue("@name", new_script_name);
+
+            long count = (long)await check_cmd.ExecuteScalarAsync();
+            name_exists = count > 0;
+
+            if (name_exists)
+            {
+                this.Snackbar.Configuration.ShowCloseIcon = true;
+                this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+                this.Snackbar.Add($"Script with name '{new_script_name}' already exists", Severity.Warning);
+                return;
+            }
+
+            // Read the original script from database - get all fields
+            string read_query = "SELECT * FROM scripts WHERE name = @original_name LIMIT 1;";
+            MySqlCommand read_cmd = new MySqlCommand(read_query, conn);
+            read_cmd.Parameters.AddWithValue("@original_name", OriginalScriptName);
+
+            string description = "";
+            string platform = "";
+            string shell = "";
+            string script = "";
+            string original_json = "";
+
+            using (var reader = await read_cmd.ExecuteReaderAsync())
+            {
+                if (await reader.ReadAsync())
+                {
+                    description = reader["description"]?.ToString() ?? "";
+                    platform = reader["platform"]?.ToString() ?? "";
+                    shell = reader["shell"]?.ToString() ?? "";
+                    script = reader["script"]?.ToString() ?? "";
+                    original_json = reader["json"]?.ToString() ?? "";
+                }
+                else
+                {
+                    this.Snackbar.Add("Original script not found in database", Severity.Error);
+                    return;
+                }
+            }
+
+            // Update the JSON with new name, author and date
+            var original_script = JsonSerializer.Deserialize<JsonDocument>(original_json);
+            if (original_script == null)
+            {
+                this.Snackbar.Add("Failed to parse script JSON", Severity.Error);
+                return;
+            }
+
+            var properties = new Dictionary<string, object>();
+            foreach (var prop in original_script.RootElement.EnumerateObject())
+            {
+                if (prop.Name == "name")
+                    properties["name"] = new_script_name;
+                else if (prop.Name == "author")
+                    properties["author"] = netlock_username ?? "";
+                else if (prop.Name == "date")
+                    properties["date"] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                else
+                {
+                    // Copy the property value as-is
+                    properties[prop.Name] = JsonSerializer.Deserialize<object>(prop.Value.GetRawText());
+                }
+            }
+
+            string new_script_json = JsonSerializer.Serialize(properties, new JsonSerializerOptions { WriteIndented = true });
+
+            // Insert the duplicated script - copy all fields from original
+            string insert_query = @"INSERT INTO scripts 
+                (name, description, platform, shell, script, json, date, author) 
+                VALUES (@name, @description, @platform, @shell, @script, @json, @date, @author);";
+
+            MySqlCommand cmd = new MySqlCommand(insert_query, conn);
+            cmd.Parameters.AddWithValue("@name", new_script_name);
+            cmd.Parameters.AddWithValue("@description", description);
+            cmd.Parameters.AddWithValue("@platform", platform);
+            cmd.Parameters.AddWithValue("@shell", shell);
+            cmd.Parameters.AddWithValue("@script", script);
+            cmd.Parameters.AddWithValue("@json", new_script_json);
+            cmd.Parameters.AddWithValue("@date", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            cmd.Parameters.AddWithValue("@author", netlock_username ?? "");
+
+            int rows_affected = await cmd.ExecuteNonQueryAsync();
+
+            if (rows_affected > 0)
+            {
+                this.Snackbar.Configuration.ShowCloseIcon = true;
+                this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+                this.Snackbar.Add($"Script '{OriginalScriptName}' successfully duplicated to '{new_script_name}'", Severity.Success);
+
+                Logging.Handler.Debug("Duplicate_Script_Dialog", "Success", $"Duplicated '{OriginalScriptName}' to '{new_script_name}'");
+
+                MudDialog.Close(DialogResult.Ok(new_script_name));
+            }
+            else
+            {
+                this.Snackbar.Configuration.ShowCloseIcon = true;
+                this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+                this.Snackbar.Add("Failed to duplicate script", Severity.Error);
+
+                MudDialog.Close(DialogResult.Cancel());
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("Duplicate_Script_Dialog", "Error", ex.ToString());
+            this.Snackbar.Configuration.ShowCloseIcon = true;
+            this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+            this.Snackbar.Add("Error duplicating script: " + ex.Message, Severity.Error);
+
+            MudDialog.Close(DialogResult.Cancel());
+        }
+        finally
+        {
+            await conn.CloseAsync();
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}
+

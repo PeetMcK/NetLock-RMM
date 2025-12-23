@@ -25,6 +25,7 @@ namespace Global.Jobs
             public string platform { get; set; }
             public string type { get; set; }
             public string script { get; set; }
+            public int? timeout { get; set; } // Nullable to handle null values in JSON
 
             public int time_scheduler_type { get; set; }
             public int time_scheduler_seconds { get; set; }
@@ -464,15 +465,17 @@ namespace Global.Jobs
                             {
                                 Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "Execute job", "name: " + job_item.name + " id: " + job_item.id);
 
+                                // Use null-coalescing operator to provide default timeout of 0 (which means 60 minutes default)
+                                int timeoutValue = job_item.timeout ?? 0;
+
                                 //Execute job
                                 if (OperatingSystem.IsWindows())
-                                    result = Windows.Helper.PowerShell.Execute_Script("Jobs.Time_Scheduler.Check_Execution (execute job) " + job_item.name, job_item.script);
+                                    result = Windows.Helper.PowerShell.Execute_Script("Jobs.Time_Scheduler.Check_Execution (execute job) " + job_item.name, job_item.script, timeoutValue);
                                 else if (OperatingSystem.IsLinux())
-                                    result = Linux.Helper.Bash.Execute_Script("Jobs.Time_Scheduler.Check_Execution (execute job) " + job_item.name, true, job_item.script);
+                                    result = Linux.Helper.Bash.Execute_Script("Jobs.Time_Scheduler.Check_Execution (execute job) " + job_item.name, true, job_item.script, timeoutValue);
                                 else if (OperatingSystem.IsMacOS())
-                                    result = MacOS.Helper.Zsh.Execute_Script("Jobs.Time_Scheduler.Check_Execution (execute job) " + job_item.name, true, job_item.script);
-
-
+                                    result = MacOS.Helper.Zsh.Execute_Script("Jobs.Time_Scheduler.Check_Execution (execute job) " + job_item.name, true, job_item.script, timeoutValue);
+                                
                                 // Insert event
                                 Logging.Jobs("Jobs.Time_Scheduler.Check_Execution", "Job executed", "name: " + job_item.name + " id: " + job_item.id + " result: " + result);
 

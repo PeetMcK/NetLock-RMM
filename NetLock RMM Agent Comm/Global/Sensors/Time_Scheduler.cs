@@ -2150,11 +2150,11 @@ namespace Global.Sensors
                                         if (sensor_item.action_treshold_count >= sensor_item.action_treshold_max)
                                         {
                                             if (OperatingSystem.IsWindows())
-                                                action_result += Environment.NewLine + Environment.NewLine + " [" + DateTime.Now.ToString() + "]" + Environment.NewLine + Windows.Helper.PowerShell.Execute_Script("Sensors.Time_Scheduler.Check_Execution (execute action) " + sensor_item.name, sensor_item.script_action);
+                                                action_result += Environment.NewLine + Environment.NewLine + " [" + DateTime.Now.ToString() + "]" + Environment.NewLine + Windows.Helper.PowerShell.Execute_Script("Sensors.Time_Scheduler.Check_Execution (execute action) " + sensor_item.name, sensor_item.script_action, 0);
                                             else if (OperatingSystem.IsLinux())
-                                                action_result += Environment.NewLine + Environment.NewLine + " [" + DateTime.Now.ToString() + "]" + Environment.NewLine + Linux.Helper.Bash.Execute_Script("Sensors.Time_Scheduler.Check_Execution (execute action) " + sensor_item.name, true, sensor_item.script_action);
+                                                action_result += Environment.NewLine + Environment.NewLine + " [" + DateTime.Now.ToString() + "]" + Environment.NewLine + Linux.Helper.Bash.Execute_Script("Sensors.Time_Scheduler.Check_Execution (execute action) " + sensor_item.name, true, sensor_item.script_action, 0);
                                             else if (OperatingSystem.IsMacOS())
-                                                action_result += Environment.NewLine + Environment.NewLine + " [" + DateTime.Now.ToString() + "]" + Environment.NewLine + MacOS.Helper.Zsh.Execute_Script("Sensors.Time_Scheduler.Check_Execution (execute action) " + sensor_item.name, true, sensor_item.script_action);
+                                                action_result += Environment.NewLine + Environment.NewLine + " [" + DateTime.Now.ToString() + "]" + Environment.NewLine + MacOS.Helper.Zsh.Execute_Script("Sensors.Time_Scheduler.Check_Execution (execute action) " + sensor_item.name, true, sensor_item.script_action, 0);
 
                                             // Create action history if not exists
                                             if (String.IsNullOrEmpty(sensor_item.action_history))

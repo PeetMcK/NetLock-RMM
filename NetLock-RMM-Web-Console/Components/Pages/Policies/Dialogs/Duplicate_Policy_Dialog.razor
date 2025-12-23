@@ -1,0 +1,160 @@
+@using MySqlConnector;
+@using System.Data.Common;
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Microsoft.AspNetCore.DataProtection
+@using System.Security.Claims
+
+@inject NavigationManager NavigationManager
+@inject ILocalStorageService localStorage
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+@inject IDataProtectionProvider DataProtectionProvider
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Duplicate Policy</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            Create a duplicate of policy: <strong>@OriginalPolicyName</strong>
+        </MudText>
+        <MudTextField Label="New Policy Name" T="string" @bind-Value="@new_policy_name" Immediate="@true" Variant="Variant.Outlined" />
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Size="@Size.Small" Color="@Color.Info" OnClick="@OK" Disabled="@Form_Valid()">
+            <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Class="mr-1" />
+            Duplicate
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private string netlock_username = string.Empty;
+    private string new_policy_name = string.Empty;
+
+    [Parameter]
+    public string OriginalPolicyName { get; set; } = string.Empty;
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private bool Form_Valid()
+    {
+        return String.IsNullOrWhiteSpace(new_policy_name);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Get the current user from the authentication state
+        var user = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+
+        // Check if user is authenticated
+        if (user?.Identity is not { IsAuthenticated: true })
+        {
+            NavigationManager.NavigateTo("/login", true);
+            return;
+        }
+
+        // Retrieve email from claims
+        netlock_username = user.FindFirst(ClaimTypes.Email)?.Value;
+
+        // Pre-fill with original name + " (Copy)"
+        new_policy_name = $"{OriginalPolicyName} (Copy)";
+    }
+
+    private async Task OK()
+    {
+        if (String.IsNullOrWhiteSpace(new_policy_name))
+        {
+            this.Snackbar.Configuration.ShowCloseIcon = true;
+            this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+            this.Snackbar.Add("Policy name cannot be empty", Severity.Error);
+            return;
+        }
+
+        MySqlConnection conn = new MySqlConnection(Configuration.MySQL.Connection_String);
+        bool name_exists = false;
+
+        try
+        {
+            await conn.OpenAsync();
+
+            // Check if policy name already exists
+            string check_query = "SELECT COUNT(*) FROM policies WHERE name = @name;";
+            MySqlCommand check_cmd = new MySqlCommand(check_query, conn);
+            check_cmd.Parameters.AddWithValue("@name", new_policy_name);
+
+            long count = (long)await check_cmd.ExecuteScalarAsync();
+            name_exists = count > 0;
+
+            if (name_exists)
+            {
+                this.Snackbar.Configuration.ShowCloseIcon = true;
+                this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+                this.Snackbar.Add($"Policy with name '{new_policy_name}' already exists", Severity.Warning);
+                return;
+            }
+
+            // Duplicate the policy
+            string insert_query = @"INSERT INTO policies 
+                (name, description, antivirus_settings, antivirus_exclusions, antivirus_scan_jobs, 
+                antivirus_controlled_folder_access_folders, sensors, jobs, 
+                tray_icon_settings, agent_settings, date, author) 
+                SELECT @new_name, description, antivirus_settings, antivirus_exclusions, antivirus_scan_jobs, 
+                antivirus_controlled_folder_access_folders, sensors, jobs, 
+                tray_icon_settings, agent_settings, @date, @author 
+                FROM policies 
+                WHERE name = @old_name;";
+
+            MySqlCommand cmd = new MySqlCommand(insert_query, conn);
+            cmd.Parameters.AddWithValue("@new_name", new_policy_name);
+            cmd.Parameters.AddWithValue("@old_name", OriginalPolicyName);
+            cmd.Parameters.AddWithValue("@date", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            cmd.Parameters.AddWithValue("@author", netlock_username);
+
+            int rows_affected = await cmd.ExecuteNonQueryAsync();
+
+            if (rows_affected > 0)
+            {
+                this.Snackbar.Configuration.ShowCloseIcon = true;
+                this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+                this.Snackbar.Add($"Policy '{OriginalPolicyName}' successfully duplicated to '{new_policy_name}'", Severity.Success);
+
+                Logging.Handler.Debug("Duplicate_Policy_Dialog", "Success", $"Duplicated '{OriginalPolicyName}' to '{new_policy_name}'");
+
+                MudDialog.Close(DialogResult.Ok(new_policy_name));
+            }
+            else
+            {
+                this.Snackbar.Configuration.ShowCloseIcon = true;
+                this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+                this.Snackbar.Add("Failed to duplicate policy", Severity.Error);
+
+                MudDialog.Close(DialogResult.Cancel());
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("Duplicate_Policy_Dialog", "Error", ex.ToString());
+            this.Snackbar.Configuration.ShowCloseIcon = true;
+            this.Snackbar.Configuration.PositionClass = Defaults.Classes.Position.BottomRight;
+            this.Snackbar.Add("Error duplicating policy: " + ex.Message, Severity.Error);
+
+            MudDialog.Close(DialogResult.Cancel());
+        }
+        finally
+        {
+            await conn.CloseAsync();
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}
+

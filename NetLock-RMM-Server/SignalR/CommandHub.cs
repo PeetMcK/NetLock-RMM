@@ -585,6 +585,8 @@ namespace NetLock_RMM_Server.SignalR
                 return "ReceiveClientResponseRemoteControlAccessRequest";
             else if (type == 9) // Power Management Action
                 return "ReceiveClientResponsePowerManagementAction";
+            else if (type == 10 || type == 11 || type == 12 || type == 13) // Remote Eventlog Viewer - Get Eventlogs
+                return "ReceiveClientResponseRemoteEventlogViewer";
             
             return "ReceiveClientResponse"; // Fallback
         }

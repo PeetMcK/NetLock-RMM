@@ -69,6 +69,11 @@
                 <MudButton Class="ml-2 mt-5" Size="Size.Small" Variant="Variant.Filled" OnClick="@(() => Edit_Script_Dialog(scripts_selectedRowContent_json))" Color="Color.Default" StartIcon="@Icons.Material.Filled.Edit" Disabled="Scripts_Get_Row_Selected()">@Localizer["edit"]</MudButton>
             }
 
+            @if (permissions_collections_scripts_add)
+            {
+                <MudButton Class="ml-2 mt-5" Size="Size.Small" Variant="Variant.Filled" OnClick="@(() => Duplicate_Script_Dialog(scripts_selectedRowContent_json))" Color="Color.Info" StartIcon="@Icons.Material.Filled.ContentCopy" Disabled="Scripts_Get_Row_Selected()">Duplicate</MudButton>
+            }
+
             @if (permissions_collections_scripts_delete)
             {
                 <MudButton Class="ml-2 mt-5" Size="Size.Small" Variant="Variant.Filled" OnClick="@(() => Delete_Script_Dialog(scripts_selectedRowContent_id))" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" Disabled="Scripts_Get_Row_Selected()">@Localizer["delete"]</MudButton>

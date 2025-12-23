@@ -19,6 +19,31 @@ namespace Windows.Microsoft_Defender_Antivirus
 {
     internal class Eventlog_Crawler
     {
+        // Helper method to check if a notification is enabled in the policy
+        private static bool Is_Notification_Enabled(string notificationKey)
+        {
+            try
+            {
+                if (String.IsNullOrEmpty(Windows_Worker.policy_antivirus_settings_json))
+                    return false;
+
+                using (JsonDocument document = JsonDocument.Parse(Windows_Worker.policy_antivirus_settings_json))
+                {
+                    if (document.RootElement.TryGetProperty(notificationKey, out JsonElement element))
+                    {
+                        return element.GetBoolean();
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Logging.Error("Microsoft_Defender_AntiVirus.Eventlog_Crawler.Is_Notification_Enabled", $"Failed to check notification: {notificationKey}", ex.ToString());
+                return false;
+            }
+        }
+
         public static void Do()
         {
             Logging.Microsoft_Defender_Antivirus("Microsoft_Defender_AntiVirus.Eventlog_Crawler.Do", "Start", "");
@@ -34,44 +59,120 @@ namespace Windows.Microsoft_Defender_Antivirus
 
             Check_Registry();
 
-            MALWAREPROTECTION_RTP_ENABLED();
-            MALWAREPROTECTION_RTP_DISABLED();
-            MALWAREPROTECTION_SIGNATURE_UPDATED();
-            MALWAREPROTECTION_STATE_MALWARE_DETECTED();
-            MALWAREPROTECTION_MALWARE_ACTION_TAKEN();
-            MALWAREPROTECTION_MALWARE_DETECTED();
-            MALWAREPROTECTION_SCAN_COMPLETED();
-            MALWAREPROTECTION_SCAN_CANCELLED();
-            MALWAREPROTECTION_SCAN_PAUSED();
-            MALWAREPROTECTION_SCAN_FAILED();
-            MALWAREPROTECTION_MALWARE_ACTION_FAILED_00_MALWAREPROTECTION_STATE_MALWARE_ACTION_FAILED_00_MALWAREPROTECTION_STATE_MALWARE_ACTION_CRITICALLY_FAILED();
-            MALWAREPROTECTION_QUARANTINE_RESTORE();
-            MALWAREPROTECTION_QUARANTINE_DELETE();
+            // Only call event methods if the corresponding notification is enabled in the policy
+            if (Is_Notification_Enabled("notifications_malwareprotection_rtp_enabled"))
+                MALWAREPROTECTION_RTP_ENABLED();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_rtp_disabled"))
+                MALWAREPROTECTION_RTP_DISABLED();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_signature_updated"))
+                MALWAREPROTECTION_SIGNATURE_UPDATED();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_state_malware_detected"))
+                MALWAREPROTECTION_STATE_MALWARE_DETECTED();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_malware_action_taken"))
+                MALWAREPROTECTION_MALWARE_ACTION_TAKEN();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_malware_detected"))
+                MALWAREPROTECTION_MALWARE_DETECTED();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_scan_completed"))
+                MALWAREPROTECTION_SCAN_COMPLETED();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_scan_cancelled"))
+                MALWAREPROTECTION_SCAN_CANCELLED();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_scan_paused"))
+                MALWAREPROTECTION_SCAN_PAUSED();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_scan_failed"))
+                MALWAREPROTECTION_SCAN_FAILED();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_malware_action_failed_00_malwareprotection_state_malware_action_failed_00_malwareprotection_state_malware_action_critically_failed"))
+                MALWAREPROTECTION_MALWARE_ACTION_FAILED_00_MALWAREPROTECTION_STATE_MALWARE_ACTION_FAILED_00_MALWAREPROTECTION_STATE_MALWARE_ACTION_CRITICALLY_FAILED();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_quarantine_restore"))
+                MALWAREPROTECTION_QUARANTINE_RESTORE();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_quarantine_delete"))
+                MALWAREPROTECTION_QUARANTINE_DELETE();
+            
+            // MALWAREPROTECTION_MALWARE_HISTORY_DELETE - no notification setting, always run
             MALWAREPROTECTION_MALWARE_HISTORY_DELETE();
-            MALWAREPROTECTION_BEHAVIOR_DETECTED();
-            MALWAREPROTECTION_STATE_MALWARE_ACTION_TAKEN();
-            MALWAREPROTECTION_FOLDER_GUARD_SECTOR_BLOCK();
-            MALWAREPROTECTION_SIGNATURE_UPDATE_FAILED();
-            MALWAREPROTECTION_SIGNATURE_REVERSION();
-            MALWAREPROTECTION_ENGINE_UPDATE_PLATFORMOUTOFDATE();
-            MALWAREPROTECTION_PLATFORM_UPDATE_FAILED();
-            MALWAREPROTECTION_PLATFORM_ALMOSTOUTOFDATE();
-            MALWAREPROTECTION_OS_EXPIRING();
-            MALWAREPROTECTION_OS_EOL();
-            MALWAREPROTECTION_PROTECTION_EOL();
-            MALWAREPROTECTION_RTP_FEATURE_FAILURE();
-            MALWAREPROTECTION_RTP_FEATURE_RECOVERED();
-            MALWAREPROTECTION_RTP_FEATURE_CONFIGURED();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_behavior_detected"))
+                MALWAREPROTECTION_BEHAVIOR_DETECTED();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_state_malware_action_taken"))
+                MALWAREPROTECTION_STATE_MALWARE_ACTION_TAKEN();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_folder_guard_sector_block"))
+                MALWAREPROTECTION_FOLDER_GUARD_SECTOR_BLOCK();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_signature_update_failed"))
+                MALWAREPROTECTION_SIGNATURE_UPDATE_FAILED();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_signature_reversion"))
+                MALWAREPROTECTION_SIGNATURE_REVERSION();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_engine_update_platformoutofdate"))
+                MALWAREPROTECTION_ENGINE_UPDATE_PLATFORMOUTOFDATE();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_platform_update_failed"))
+                MALWAREPROTECTION_PLATFORM_UPDATE_FAILED();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_platform_almostoutofdate"))
+                MALWAREPROTECTION_PLATFORM_ALMOSTOUTOFDATE();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_os_expiring"))
+                MALWAREPROTECTION_OS_EXPIRING();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_os_eol"))
+                MALWAREPROTECTION_OS_EOL();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_protection_eol"))
+                MALWAREPROTECTION_PROTECTION_EOL();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_rtp_feature_failure"))
+                MALWAREPROTECTION_RTP_FEATURE_FAILURE();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_rtp_feature_recovered"))
+                MALWAREPROTECTION_RTP_FEATURE_RECOVERED();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_rtp_feature_configured"))
+                MALWAREPROTECTION_RTP_FEATURE_CONFIGURED();
+            
             //MALWAREPROTECTION_CONFIG_CHANGED(); Spams config
-            MALWAREPROTECTION_ENGINE_FAILURE();
-            MALWAREPROTECTION_ANTISPYWARE_ENABLED();
-            MALWAREPROTECTION_ANTISPYWARE_DISABLED();
-            MALWAREPROTECTION_ANTIVIRUS_ENABLED();
-            MALWAREPROTECTION_ANTIVIRUS_DISABLED();
-            TAMPER_PROTECTION_BLOCKED_CHANGES();
-            MALWAREPROTECTION_EXPIRATION_WARNING_STATE();
-            MALWAREPROTECTION_DISABLED_EXPIRED_STATE();
-            CONTROLLED_FOLDER_ACTIONS_BLOCKED_ACTION();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_engine_failure"))
+                MALWAREPROTECTION_ENGINE_FAILURE();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_antispyware_enabled"))
+                MALWAREPROTECTION_ANTISPYWARE_ENABLED();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_antispyware_disabled"))
+                MALWAREPROTECTION_ANTISPYWARE_DISABLED();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_antivirus_enabled"))
+                MALWAREPROTECTION_ANTIVIRUS_ENABLED();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_antivirus_disabled"))
+                MALWAREPROTECTION_ANTIVIRUS_DISABLED();
+            
+            if (Is_Notification_Enabled("notifications_tamper_protection_blocked_changes"))
+                TAMPER_PROTECTION_BLOCKED_CHANGES();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_expiration_warning_state"))
+                MALWAREPROTECTION_EXPIRATION_WARNING_STATE();
+            
+            if (Is_Notification_Enabled("notifications_malwareprotection_disabled_expired_state"))
+                MALWAREPROTECTION_DISABLED_EXPIRED_STATE();
+            
+            if (Is_Notification_Enabled("notifications_controlled_folder_actions_blocked_action"))
+                CONTROLLED_FOLDER_ACTIONS_BLOCKED_ACTION();
+            
             //Delete_Eventlog();
 
             //Service.microsoft_defender_antivirus_events_crawling = false;
@@ -527,6 +628,7 @@ namespace Windows.Microsoft_Defender_Antivirus
                         else if (Global.Configuration.Agent.language == "de-DE")
                             Global.Events.Logger.Insert_Event("0", "Microsoft Defender Antivirus", "Echtzeitschutz aktiviert.", "Timestamp: " + eventRecord.TimeCreated + Environment.NewLine + "Sensor: MALWAREPROTECTION_RTP_ENABLED" + Environment.NewLine + Environment.NewLine + eventRecord.FormatDescription(), Windows_Worker.microsoft_defender_antivirus_notifications_json, 0, 1);
 
+
                         //Trigger trayicon notification | NetLock legacy code. Will be worked on in the future.
                         /*if (NetLock_Agent_Service.tray_icon_notifications_antivirus)
                             if (NetLock_Agent_Service.os_language != 0)
@@ -569,6 +671,7 @@ namespace Windows.Microsoft_Defender_Antivirus
                             Global.Events.Logger.Insert_Event("3", "Microsoft Defender Antivirus", "Real-time protection disabled.", details, Windows_Worker.microsoft_defender_antivirus_notifications_json, 0, 0);
                         else if (Global.Configuration.Agent.language == "de-DE")
                             Global.Events.Logger.Insert_Event("3", "Microsoft Defender Antivirus", "Echtzeitschutz deaktiviert.", details, Windows_Worker.microsoft_defender_antivirus_notifications_json, 0, 1);
+
 
                         //Trigger trayicon notification | NetLock legacy code. Will be worked on in the future.
                         /*
